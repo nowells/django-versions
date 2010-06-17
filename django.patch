@@ -1,0 +1,33 @@
+diff --git a/django/db/models/fields/related.py b/django/db/models/fields/related.py
+index 795292f..de7527f 100644
+--- a/django/db/models/fields/related.py
++++ b/django/db/models/fields/related.py
+@@ -251,6 +251,7 @@ class ReverseSingleRelatedObjectDescriptor(object):
+             # If the related manager indicates that it should be used for
+             # related fields, respect that.
+             rel_mgr = self.field.rel.to._default_manager
++            rel_mgr.reverse_model_instance = instance
+             if getattr(rel_mgr, 'use_for_related_fields', False):
+                 rel_obj = rel_mgr.get(**params)
+             else:
+@@ -398,7 +399,7 @@ class ForeignRelatedObjectsDescriptor(object):
+         manager.core_filters = {'%s__%s' % (rel_field.name, attname):
+                 getattr(instance, attname)}
+         manager.model = self.related.model
+-
++        manager.reverse_model_instance = instance
+         return manager
+
+ def create_many_related_manager(superclass, through=False):
+diff --git a/django/db/models/manager.py b/django/db/models/manager.py
+index 435f2e9..26ebbde 100644
+--- a/django/db/models/manager.py
++++ b/django/db/models/manager.py
+@@ -48,6 +48,7 @@ class Manager(object):
+         super(Manager, self).__init__()
+         self._set_creation_counter()
+         self.model = None
++        self.reverse_model_instance = None
+         self._inherited = False
+
+     def contribute_to_class(self, model, name):
