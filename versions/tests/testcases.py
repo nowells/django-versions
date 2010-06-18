@@ -2,6 +2,7 @@ import shutil
 
 from django.conf import settings
 from django.test import TestCase
+from django.core.exceptions import ObjectDoesNotExist
 
 from versions import Versions, VersionDoesNotExist
 from versions.tests.models import Artist, Albumn, Song
@@ -122,14 +123,16 @@ class ModelSaveTest(VersionsTestCase):
         third_revision = vc.finish().values()[0]
 
         # Verify that friends_will_be_friends does not exist at the second_revision (it was created on the third revision)
-        self.assertRaises(VersionDoesNotExist, Song.objects.version(second_revision).get, pk=friends_will_be_friends.pk)
+        self.assertRaises(ObjectDoesNotExist, Song.objects.version(second_revision).get, pk=friends_will_be_friends.pk)
 
         # the a_kind_of_magic albumn was not modified after the initial commit. Verify that we can retrieve the a_kind_of_magic model from the various revisions
+        first_a_kind_of_magic = Albumn.objects.version(first_revision).get(pk=a_kind_of_magic.pk)
         second_a_kind_of_magic = Albumn.objects.version(second_revision).get(pk=a_kind_of_magic.pk)
         third_a_kind_of_magic = Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk)
 
         # Verify that the data is the same.
-        self.assertEqual(vc.data(a_kind_of_magic), vc.data(a_kind_of_magic))
+        self.assertEqual(vc.data(first_a_kind_of_magic), vc.data(second_a_kind_of_magic))
+        self.assertEqual(vc.data(second_a_kind_of_magic), vc.data(third_a_kind_of_magic))
 
         second_princes_of_the_universe = second_a_kind_of_magic.songs.get(pk=princes_of_the_universe.pk)
         self.assertEqual(second_princes_of_the_universe.seconds, None)
@@ -141,8 +144,7 @@ class ModelSaveTest(VersionsTestCase):
         self.assertEquals(len(third_a_kind_of_magic.songs.all()), 3)
 
         # Verify that the second revision of a_kind_of_magic has two songs
-        self.assertEquals(len(a_kind_of_magic.songs.all()), 2)
-
+        self.assertEquals(len(first_a_kind_of_magic.songs.all()), 2)
 
     def test_revision_retreival(self):
         prince = Artist()

@@ -55,15 +55,22 @@ class VersionsQuery(sql.Query):
                 if fields is None:
                     fields = self.get_field_mapping()
 
+                # Track whether this row existed at the time of the revision.
+                exists = True
                 for field in fields.values():
                     try:
+                        # TODO: exclude models that existed, but were deleted at this revision?
                         rev_data = vc._version(field['model'], row[field['pk']], rev=self._revision)
                         for column in field['columns'].values():
                             if column['position'] is not None:
                                 row[column['position']] = rev_data.get(column['field'], row[column['position']])
                     except VersionDoesNotExist:
-                        raise
-                yield row
+                        exists = False
+                        break
+
+                # If all of the objects within this row existed at the specified revision, yeild the row.
+                if exists:
+                    yield row
 
 class VersionsQuerySet(query.QuerySet):
     def __init__(self, *args, **kwargs):
