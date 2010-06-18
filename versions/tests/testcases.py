@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
 
 from versions import Versions, VersionDoesNotExist, VersionsException
-from versions.tests.models import Artist, Albumn, Song
+from versions.tests.models import Artist, Albumn, Song, Lyrics
 
 class VersionsTestCase(TestCase):
     def setUp(self):
@@ -14,7 +14,7 @@ class VersionsTestCase(TestCase):
     def tearDown(self):
         shutil.rmtree(settings.VERSIONS_REPOSITORY_ROOT, ignore_errors=True)
 
-class ModelVersionsTestCase(VersionsTestCase):
+class VersionsModelTestCase(VersionsTestCase):
     def test_unmanaged_edits(self):
         queen = Artist()
         queen.name = 'Queen'
@@ -241,3 +241,53 @@ class ModelVersionsTestCase(VersionsTestCase):
         self.assertRaises(VersionsException, Artist.objects.version('tip').aggregate)
         self.assertRaises(VersionsException, Artist.objects.version('tip').annotate)
         self.assertRaises(VersionsException, Artist.objects.version('tip').values_list)
+
+class PublishedModelTestCase(VersionsTestCase):
+    def test_unpublished(self):
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen = Artist()
+        queen.name = u'Queen'
+        queen.save()
+
+        a_kind_of_magic = Albumn()
+        a_kind_of_magic.artist = queen
+        a_kind_of_magic.title = u'A Kind of Magic'
+        a_kind_of_magic.save()
+
+        dont_lose_your_head = Song()
+        dont_lose_your_head.albumn = a_kind_of_magic
+        dont_lose_your_head.title = u"Don't Lose Your Head"
+        dont_lose_your_head.save()
+
+        original_lyrics = Lyrics()
+        original_lyrics.song = dont_lose_your_head
+        original_lyrics.text = """Dont lose your head"""
+        original_lyrics.save()
+
+        # Finish the versioning transaction.
+        first_revision = vc.finish().values()[0]
+
+        # Start a managed versioning transaction.
+        vc.start()
+
+        new_lyrics = """Dont lose your head
+Dont lose your head
+Dont lose your head
+No dont lose you head
+"""
+
+        unpublished_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
+        unpublished_lyrics.versions_published = False
+        unpublished_lyrics.text = new_lyrics
+        unpublished_lyrics.save()
+
+        second_revision = vc.finish().values()[0]
+
+        # Ensure the database version still points to the old lyrics.
+        self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, "Dont lose your head")
+        # Ensure that the revisions contain the correct information.
+        self.assertEquals(Lyrics.objects.version(first_revision).get(pk=original_lyrics.pk).text, "Dont lose your head")
+        self.assertEquals(Lyrics.objects.version(second_revision).get(pk=original_lyrics.pk).text, new_lyrics)
