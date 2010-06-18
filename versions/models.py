@@ -60,6 +60,13 @@ class VersionsQuery(sql.Query):
                 for field in fields.values():
                     try:
                         # TODO: exclude models that existed, but were deleted at this revision?
+                        # TODO: how do we handle select_related queries?
+                        #    1) if the primary object does not exist at this revision, it should be skipped.
+                        #    2) what about objects included in select_reated? (if the filter was only filtering on the primary object,
+                        #       we should be able to set data from the select_related model that does not exist at this revision to None,
+                        #       however, what do we do if the query filtered on the related object?
+                        #    3) What if this object is only being included because the database value of the selected object at an old revision matched,
+                        #       but the existing revision of that object does not?
                         rev_data = vc._version(field['model'], row[field['pk']], rev=self._revision)
                         for column in field['columns'].values():
                             if column['position'] is not None:
