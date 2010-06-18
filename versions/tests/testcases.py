@@ -13,7 +13,7 @@ class VersionsTestCase(TestCase):
     def tearDown(self):
         shutil.rmtree(settings.VERSIONS_REPOSITORY_ROOT, ignore_errors=True)
 
-class TestModelSaveVersioning(VersionsTestCase):
+class ModelSaveTest(VersionsTestCase):
     def test_unmanaged_edits(self):
         queen = Artist()
         queen.name = 'Queen'
@@ -71,7 +71,7 @@ class TestModelSaveVersioning(VersionsTestCase):
         # Verify that both edits to Queen and Prince were tracked in the same revision.
         self.assertEquals(Artist.objects.revisions(prince), Artist.objects.revisions(queen))
 
-    def test_related_models(self):
+    def test_related_model_edits(self):
         vc = Versions()
         # Start a managed versioning transaction.
         vc.start()
@@ -121,13 +121,28 @@ class TestModelSaveVersioning(VersionsTestCase):
         # Finish the versioning transaction.
         third_revision = vc.finish().values()[0]
 
-        # the Queen artist was not modified in the second_revision, verify that we can still retreive that revision of the model.
-        second_queen = Artist.objects.version(second_revision).get(pk=queen.pk)
-
-        self.assertEqual(vc.data(queen), vc.data(second_queen))
-
         # Verify that friends_will_be_friends does not exist at the second_revision (it was created on the third revision)
         self.assertRaises(VersionDoesNotExist, Song.objects.version(second_revision).get, pk=friends_will_be_friends.pk)
+
+        # the a_kind_of_magic albumn was not modified after the initial commit. Verify that we can retrieve the a_kind_of_magic model from the various revisions
+        second_a_kind_of_magic = Albumn.objects.version(second_revision).get(pk=a_kind_of_magic.pk)
+        third_a_kind_of_magic = Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk)
+
+        # Verify that the data is the same.
+        self.assertEqual(vc.data(a_kind_of_magic), vc.data(a_kind_of_magic))
+
+        second_princes_of_the_universe = second_a_kind_of_magic.songs.get(pk=princes_of_the_universe.pk)
+        self.assertEqual(second_princes_of_the_universe.seconds, None)
+
+        third_princes_of_the_universe = third_a_kind_of_magic.songs.get(pk=princes_of_the_universe.pk)
+        self.assertEqual(third_princes_of_the_universe.seconds, 212)
+
+        # Verify that the third revision of a_kind_of_magic has three songs
+        self.assertEquals(len(third_a_kind_of_magic.songs.all()), 3)
+
+        # Verify that the second revision of a_kind_of_magic has two songs
+        self.assertEquals(len(a_kind_of_magic.songs.all()), 2)
+
 
     def test_revision_retreival(self):
         prince = Artist()
