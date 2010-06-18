@@ -1,4 +1,5 @@
 from collections import defaultdict
+import difflib
 import os
 try:
     import cPickle as pickle
@@ -122,7 +123,7 @@ class Versions(object):
 
     def revision(self, instance, rev='tip'):
         try:
-            self._revision(instance.__class__, instance._get_pk_val(), rev=rev)
+            return self._revision(instance.__class__, instance._get_pk_val(), rev=rev)
         except LookupError:
             return self.data(instance)
 
@@ -133,3 +134,15 @@ class Versions(object):
         instance_match = match.exact(repository.root, repository.getcwd(), [instance_path])
         change_contexts = walkchangerevs(repository, instance_match, {'rev': None}, lambda ctx, fns: ctx)
         return change_contexts
+
+    def diff(self, instance, rev0, rev1=None):
+        inst0 = self.revision(instance, rev0)
+        if rev1 is None:
+            inst1 = self.data(instance)
+        else:
+            inst1 = self.revision(instance, rev1)
+        keys = list(set(inst0.keys() + inst1.keys()))
+        difference = {}
+        for key in keys:
+            difference[key] = ''.join(difflib.unified_diff(repr(inst0.get(key, '')), repr(inst1.get(key, ''))))
+        return difference
