@@ -1,3 +1,8 @@
+try:
+    from functools import wraps
+except ImportError:
+    from django.utils.functional import wraps  # Python 2.3, 2.4 fallback.
+
 from django.db import connection
 from django.db import models
 from django.db.models import base
@@ -5,7 +10,8 @@ from django.db.models import query
 from django.db.models import sql
 from django.db.models.fields import related
 
-from versions.repo import Versions, VersionDoesNotExist
+from versions.exceptions import VersionDoesNotExist, VersionsException
+from versions.repo import Versions
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
@@ -34,6 +40,12 @@ class VersionsQuery(sql.Query):
                 model = _versions_table_mappings[table]
 
                 if table not in fields:
+                    expected_pk_column = '%s.%s' % (qn(model._meta.db_table), qn(model._meta.pk.attname))
+                    # This is a sanity check to ensure that we are mapping the right database table to the right model.
+                    # In order for the revisions code to work, we always need to have the pk of a record returned.
+                    if field != expected_pk_column:
+                        raise Exception('Error while locating primary_key column, expected to find %s, but found %s instead' % (expected_pk_column, column))
+
                     fields[table] = {
                         'model': _versions_table_mappings[table],
                         'pk': field_start + offset,
@@ -68,9 +80,15 @@ class VersionsQuery(sql.Query):
                         #    3) What if this object is only being included because the database value of the selected object at an old revision matched,
                         #       but the existing revision of that object does not?
                         rev_data = vc._version(field['model'], row[field['pk']], rev=self._revision)
-                        for column in field['columns'].values():
-                            if column['position'] is not None:
-                                row[column['position']] = rev_data.get(column['field'], row[column['position']])
+
+                        # Exclude objects that were deleted in the past.
+                        if rev_data.get('versions_deleted', False):
+                            exists = False
+                            break
+                        else:
+                            for column in field['columns'].values():
+                                if column['position'] is not None:
+                                    row[column['position']] = rev_data.get(column['field'], row[column['position']])
                     except VersionDoesNotExist:
                         exists = False
                         break
@@ -98,6 +116,26 @@ class VersionsQuerySet(query.QuerySet):
             result._versions_revision = self._revision
             yield result
 
+    def count(self, *args, **kwargs):
+        if self._revision is not None:
+            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'count')
+        return super(VersionsQuerySet, self).count(*args, **kwargs)
+
+    def values_list(self, *args, **kwargs):
+        if self._revision is not None:
+            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'values_list')
+        return super(VersionsQuerySet, self).values_list(*args, **kwargs)
+
+    def aggregate(self, *args, **kwargs):
+        if self._revision is not None:
+            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'aggregate')
+        return super(VersionsQuerySet, self).aggregate(*args, **kwargs)
+
+    def annotate(self, *args, **kwargs):
+        if self._revision is not None:
+            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'annotate')
+        return super(VersionsQuerySet, self).annotate(*args, **kwargs)
+
 class VersionsManager(models.Manager):
     use_for_related_fields = True
 
@@ -115,7 +153,13 @@ class VersionsManager(models.Manager):
     def get_query_set(self, revision=None):
         if self.reverse_model_instance is not None:
             revision = revision and revision or self.reverse_model_instance._versions_revision
+
         qs = VersionsQuerySet(model=self.model, query=VersionsQuery(self.model, connection, revision=revision), revision=revision)
+
+        # If we are looking up the current state of the model instances, filter out deleted models. The Versions system will take care of filtering out the deleted revised objects.
+        if revision is None:
+            qs = qs.filter(versions_deleted=False)
+
         return qs
 
 class VersionsModel(models.Model):
@@ -123,7 +167,7 @@ class VersionsModel(models.Model):
     _versions_revision = None
 
     # Fields
-    #versions_deleted = models.BooleanField(default=False)
+    versions_deleted = models.BooleanField(default=False)
 
     objects = VersionsManager()
 

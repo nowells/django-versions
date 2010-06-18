@@ -16,15 +16,10 @@ from mercurial import node
 from mercurial import ui
 
 from django.conf import settings
+from versions.exceptions import VersionDoesNotExist
 
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
-
-class VersionsException(Exception):
-    pass
-
-class VersionDoesNotExist(VersionsException):
-    pass
 
 class Versions(object):
     def is_managed(self):
