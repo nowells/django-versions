@@ -91,6 +91,10 @@ class VersionsManager(models.Manager):
     def revision(self, revision):
         return self.get_query_set(revision)
 
+    def revisions(self, instance):
+        vc = Versions()
+        return [ x.hex() for x in vc.revisions(instance) ]
+
     def get_query_set(self, revision=None):
         if self.reverse_model_instance is not None:
             revision = revision and revision or self.reverse_model_instance._versions_revision

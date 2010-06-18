@@ -6,9 +6,11 @@ except ImportError:
     import pickle
 import threading
 
+from mercurial.cmdutil import walkchangerevs
 from mercurial import context
 from mercurial import error
 from mercurial import hg
+from mercurial import match
 from mercurial import ui
 
 from django.conf import settings
@@ -123,3 +125,11 @@ class Versions(object):
             self._revision(instance.__class__, instance._get_pk_val(), rev=rev)
         except LookupError:
             return self.data(instance)
+
+    def revisions(self, instance):
+        repo_path = self.get_repository_path(instance.__class__, instance._get_pk_val())
+        instance_path = self.get_instance_path(instance.__class__, instance._get_pk_val())
+        repository = self.repository(repo_path)
+        instance_match = match.exact(repository.root, repository.getcwd(), [instance_path])
+        change_contexts = walkchangerevs(repository, instance_match, {'rev': None}, lambda ctx, fns: ctx)
+        return change_contexts
