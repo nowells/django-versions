@@ -19,8 +19,6 @@ from django.conf import settings
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
 
-assert hasattr(settings, 'VERSIONS_REPOSITORY_ROOT'), "You must set `VERSIONS_REPOSITORY_ROOT` in your settings.py to be the root of where you would like the django-versions application to checkout working copies of mercurial repositories."
-
 class Versions(object):
     def is_managed(self):
         return getattr(_versions, 'changes', None) is not None
