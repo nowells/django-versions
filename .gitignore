@@ -5,3 +5,4 @@
 django_versions.egg-info/
 build/
 dist/
+docs/_build/
