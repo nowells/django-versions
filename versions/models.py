@@ -57,7 +57,7 @@ class VersionsQuery(sql.Query):
 
                 for field in fields.values():
                     try:
-                        rev_data = vc._revision(field['model'], row[field['pk']], rev=self._revision)
+                        rev_data = vc._version(field['model'], row[field['pk']], rev=self._revision)
                         for column in field['columns'].values():
                             if column['position'] is not None:
                                 row[column['position']] = rev_data.get(column['field'], row[column['position']])
@@ -88,7 +88,7 @@ class VersionsQuerySet(query.QuerySet):
 class VersionsManager(models.Manager):
     use_for_related_fields = True
 
-    def revision(self, revision):
+    def version(self, revision):
         return self.get_query_set(revision)
 
     def revisions(self, instance):

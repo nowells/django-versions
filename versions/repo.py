@@ -112,7 +112,7 @@ class Versions(object):
         field_names = [ x.name for x in fields ]
         return dict([ (x[0], x[1],) for x in instance.__dict__.items() if x[0] in field_names ])
 
-    def _revision(self, cls, pk, rev='tip'):
+    def _version(self, cls, pk, rev='tip'):
         repo_path = self.get_repository_path(cls, pk)
         instance_path = self.get_instance_path(cls, pk)
         print 'Fetching revision %s for %s from %s' % (rev, instance_path, repo_path)
@@ -121,9 +121,9 @@ class Versions(object):
         raw_data = fctx.data()
         return self.deserialize(raw_data)
 
-    def revision(self, instance, rev='tip'):
+    def version(self, instance, rev='tip'):
         try:
-            return self._revision(instance.__class__, instance._get_pk_val(), rev=rev)
+            return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
         except LookupError:
             return self.data(instance)
 
@@ -136,11 +136,11 @@ class Versions(object):
         return change_contexts
 
     def diff(self, instance, rev0, rev1=None):
-        inst0 = self.revision(instance, rev0)
+        inst0 = self.version(instance, rev0)
         if rev1 is None:
             inst1 = self.data(instance)
         else:
-            inst1 = self.revision(instance, rev1)
+            inst1 = self.version(instance, rev1)
         keys = list(set(inst0.keys() + inst1.keys()))
         difference = {}
         for key in keys:
