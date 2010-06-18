@@ -5,7 +5,7 @@ from django.db.models import query
 from django.db.models import sql
 from django.db.models.fields import related
 
-from versions.repo import Versions
+from versions.repo import Versions, VersionDoesNotExist
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
@@ -61,9 +61,8 @@ class VersionsQuery(sql.Query):
                         for column in field['columns'].values():
                             if column['position'] is not None:
                                 row[column['position']] = rev_data.get(column['field'], row[column['position']])
-                    except LookupError:
-                        # TODO: how should we handle this?
-                        pass
+                    except VersionDoesNotExist:
+                        raise
                 yield row
 
 class VersionsQuerySet(query.QuerySet):

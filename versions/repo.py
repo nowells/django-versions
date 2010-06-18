@@ -20,6 +20,12 @@ from django.conf import settings
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
 
+class VersionsException(Exception):
+    pass
+
+class VersionDoesNotExist(VersionsException):
+    pass
+
 class Versions(object):
     def is_managed(self):
         return getattr(_versions, 'changes', None) is not None
@@ -123,14 +129,14 @@ class Versions(object):
         #print 'Fetching revision %s for %s from %s' % (rev, instance_path, repo_path)
         repository = self.repository(repo_path)
         fctx = repository.filectx(instance_path, rev)
-        raw_data = fctx.data()
+        try:
+            raw_data = fctx.data()
+        except error.LookupError:
+            raise VersionDoesNotExist('Revision `%s` does not exist for %s in %s' % (rev, instance_path, repo_path))
         return self.deserialize(raw_data)
 
     def version(self, instance, rev='tip'):
-        try:
-            return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
-        except LookupError:
-            return self.data(instance)
+        return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
 
     def revisions(self, instance):
         repo_path = self.get_repository_path(instance.__class__, instance._get_pk_val())

@@ -3,7 +3,7 @@ import shutil
 from django.conf import settings
 from django.test import TestCase
 
-from versions import Versions
+from versions import Versions, VersionDoesNotExist
 from versions.tests.models import Artist, Albumn, Song
 
 class VersionsTestCase(TestCase):
@@ -104,6 +104,12 @@ class TestModelSaveVersioning(VersionsTestCase):
         dont_lose_your_head.seconds = 278
         dont_lose_your_head.save()
 
+        # Finish the versioning transaction.
+        second_revision = vc.finish().values()[0]
+
+        # Start a managed versionsing transaction.
+        vc.start()
+
         princes_of_the_universe.seconds = 212
         princes_of_the_universe.save()
 
@@ -113,7 +119,15 @@ class TestModelSaveVersioning(VersionsTestCase):
         friends_will_be_friends.save()
 
         # Finish the versioning transaction.
-        second_revision = vc.finish().values()[0]
+        third_revision = vc.finish().values()[0]
+
+        # the Queen artist was not modified in the second_revision, verify that we can still retreive that revision of the model.
+        second_queen = Artist.objects.version(second_revision).get(pk=queen.pk)
+
+        self.assertEqual(vc.data(queen), vc.data(second_queen))
+
+        # Verify that friends_will_be_friends does not exist at the second_revision (it was created on the third revision)
+        self.assertRaises(VersionDoesNotExist, Song.objects.version(second_revision).get, pk=friends_will_be_friends.pk)
 
     def test_revision_retreival(self):
         prince = Artist()
