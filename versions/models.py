@@ -123,7 +123,7 @@ class VersionsModel(models.Model):
     def save(self, *args, **kwargs):
         super(VersionsModel, self).save(*args, **kwargs)
         vc = Versions()
-        vc.stage(self)
+        return vc.stage(self)
 
     def delete(self, *args, **kwargs):
         self.versions_deleted = True

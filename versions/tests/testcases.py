@@ -4,7 +4,7 @@ from django.conf import settings
 from django.test import TestCase
 
 from versions import Versions
-from versions.tests.models import Artist
+from versions.tests.models import Artist, Albumn, Song
 
 class VersionsTestCase(TestCase):
     def setUp(self):
@@ -24,6 +24,9 @@ class TestModelSaveVersioning(VersionsTestCase):
         prince.name = 'Price'
         prince.save()
         self.assertEquals(len(Artist.objects.revisions(prince)), 1)
+
+        # Verify that the commit for Queen and Prince happened in different revisions.
+        self.assertNotEqual(Artist.objects.revisions(prince), Artist.objects.revisions(queen))
 
         prince.name = 'The Artist Formerly Known As Prince'
         prince.save()
@@ -65,5 +68,72 @@ class TestModelSaveVersioning(VersionsTestCase):
         self.assertEquals(len(Artist.objects.revisions(prince)), 1)
         self.assertEquals(len(Artist.objects.revisions(queen)), 1)
 
-        # Verify that both edits to Queen and Prince were tracked in the same commit.
+        # Verify that both edits to Queen and Prince were tracked in the same revision.
         self.assertEquals(Artist.objects.revisions(prince), Artist.objects.revisions(queen))
+
+    def test_related_models(self):
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen = Artist()
+        queen.name = u'Queen'
+        queen.save()
+
+        a_kind_of_magic = Albumn()
+        a_kind_of_magic.artist = queen
+        a_kind_of_magic.title = u'A Kind of Magic'
+        a_kind_of_magic.save()
+
+        princes_of_the_universe = Song()
+        princes_of_the_universe.albumn = a_kind_of_magic
+        princes_of_the_universe.title = u'Princes of the Universe'
+        princes_of_the_universe.save()
+
+        dont_lose_your_head = Song()
+        dont_lose_your_head.albumn = a_kind_of_magic
+        dont_lose_your_head.title = u"Don't Lose Your Head"
+        dont_lose_your_head.save()
+
+        # Finish the versioning transaction.
+        first_revision = vc.finish().values()[0]
+
+        # Start a managed versionsing transaction.
+        vc.start()
+
+        dont_lose_your_head.seconds = 278
+        dont_lose_your_head.save()
+
+        princes_of_the_universe.seconds = 212
+        princes_of_the_universe.save()
+
+        friends_will_be_friends = Song()
+        friends_will_be_friends.albumn = a_kind_of_magic
+        friends_will_be_friends.title = 'Friends Will Be Friends'
+        friends_will_be_friends.save()
+
+        # Finish the versioning transaction.
+        second_revision = vc.finish().values()[0]
+
+    def test_revision_retreival(self):
+        prince = Artist()
+        prince.name = 'Prince'
+        first_revision = prince.save()
+
+        prince.name = 'The Artist Formerly Known As Prince'
+        second_revision = prince.save()
+
+        prince.name = 'Prince'
+        third_revision = prince.save()
+
+        first_prince = Artist.objects.version(first_revision).get(pk=prince.pk)
+        self.assertEquals(first_prince.name, 'Prince')
+        self.assertEquals(first_prince._versions_revision, first_revision)
+
+        second_prince = Artist.objects.version(second_revision).get(pk=prince.pk)
+        self.assertEquals(second_prince.name, 'The Artist Formerly Known As Prince')
+        self.assertEquals(second_prince._versions_revision, second_revision)
+
+        third_prince = Artist.objects.version(third_revision).get(pk=prince.pk)
+        self.assertEquals(third_prince.name, 'Prince')
+        self.assertEquals(third_prince._versions_revision, third_revision)

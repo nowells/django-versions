@@ -12,6 +12,7 @@ from mercurial import context
 from mercurial import error
 from mercurial import hg
 from mercurial import match
+from mercurial import node
 from mercurial import ui
 
 from django.conf import settings
@@ -28,19 +29,23 @@ class Versions(object):
             _versions.changes = defaultdict(dict)
 
     def finish(self, exception=False):
+        revisions = {}
         if self.is_managed():
             for repo_path, items in _versions.changes.items():
-                self.commit(repo_path, items)
+                revisions[repo_path] = self.commit(repo_path, items)
             _versions.changes = None
+        return revisions
 
     def stage(self, instance):
         repo_path = self.get_repository_path(instance.__class__, instance._get_pk_val())
         instance_path = self.get_instance_path(instance.__class__, instance._get_pk_val())
         data = self.serialize(instance)
+        revision = None
         if self.is_managed():
             _versions.changes[repo_path][instance_path] = data
         else:
-            self.commit(repo_path, {instance_path: data})
+            revision = self.commit(repo_path, {instance_path: data})
+        return revision
 
     def repository(self, repo_path):
         create = not os.path.isdir(repo_path)
@@ -81,9 +86,11 @@ class Versions(object):
                     user="Nowell Strite <nowell@strite.org>",
                     )
 
-                repository.commitctx(ctx)
+                revision = node.hex(repository.commitctx(ctx))
 
                 hg.update(repository, repository['tip'].node())
+
+                return revision
             finally:
                 lock.release()
 
@@ -113,7 +120,7 @@ class Versions(object):
     def _version(self, cls, pk, rev='tip'):
         repo_path = self.get_repository_path(cls, pk)
         instance_path = self.get_instance_path(cls, pk)
-        print 'Fetching revision %s for %s from %s' % (rev, instance_path, repo_path)
+        #print 'Fetching revision %s for %s from %s' % (rev, instance_path, repo_path)
         repository = self.repository(repo_path)
         fctx = repository.filectx(instance_path, rev)
         raw_data = fctx.data()
