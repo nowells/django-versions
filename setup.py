@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-from distutils.core import setup
+from setuptools import setup
 import os
 
 version = '0.1'
@@ -16,6 +16,8 @@ setup(
     url='http://github.com/nowells/django-versions/',
     packages=['versions'],
     license='MIT',
+    install_requires=['mercurial>=1.5.2'],
+    zip_safe=False,
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
