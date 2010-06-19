@@ -16,13 +16,11 @@ class VersionsTestCase(TestCase):
 
 class VersionsModelTestCase(VersionsTestCase):
     def test_unmanaged_edits(self):
-        queen = Artist()
-        queen.name = 'Queen'
+        queen = Artist(name='Queen')
         queen.save()
         self.assertEquals(len(Artist.objects.revisions(queen)), 1)
 
-        prince = Artist()
-        prince.name = 'Price'
+        prince = Artist(name='Prince')
         prince.save()
         self.assertEquals(len(Artist.objects.revisions(prince)), 1)
 
@@ -42,13 +40,11 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versioning session.
         vc.start()
 
-        queen = Artist()
-        queen.name = 'Queen'
+        queen = Artist(name='Queen')
         queen.save()
         self.assertEquals(len(Artist.objects.revisions(queen)), 0)
 
-        prince = Artist()
-        prince.name = 'Price'
+        prince = Artist(name='Prince')
         prince.save()
         self.assertEquals(len(Artist.objects.revisions(prince)), 0)
 
@@ -77,18 +73,13 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versioning transaction.
         vc.start()
 
-        queen = Artist()
-        queen.name = u'Queen'
+        queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn()
-        a_kind_of_magic.artist = queen
-        a_kind_of_magic.title = u'A Kind of Magic'
+        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        dont_lose_your_head = Song()
-        dont_lose_your_head.albumn = a_kind_of_magic
-        dont_lose_your_head.title = u"Don't Lose Your Head"
+        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
         # Finish the versioning transaction.
@@ -97,9 +88,7 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versionsing transaction.
         vc.start()
 
-        princes_of_the_universe = Song()
-        princes_of_the_universe.albumn = a_kind_of_magic
-        princes_of_the_universe.title = u'Princes of the Universe'
+        princes_of_the_universe = Song(albumn=a_kind_of_magic, title='Princes of the Universe')
         princes_of_the_universe.save()
 
         dont_lose_your_head.seconds = 278
@@ -114,9 +103,7 @@ class VersionsModelTestCase(VersionsTestCase):
         princes_of_the_universe.seconds = 212
         princes_of_the_universe.save()
 
-        friends_will_be_friends = Song()
-        friends_will_be_friends.albumn = a_kind_of_magic
-        friends_will_be_friends.title = 'Friends Will Be Friends'
+        friends_will_be_friends = Song(albumn=a_kind_of_magic, title='Friends Will Be Friends')
         friends_will_be_friends.save()
 
         # Finish the versioning transaction.
@@ -154,8 +141,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEquals(len(third_a_kind_of_magic.songs.all()), 3)
 
     def test_revision_retrieval(self):
-        prince = Artist()
-        prince.name = 'Prince'
+        prince = Artist(name='Prince')
         first_revision = prince.save()
 
         prince.name = 'The Artist Formerly Known As Prince'
@@ -181,18 +167,13 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versioning transaction.
         vc.start()
 
-        queen = Artist()
-        queen.name = u'Queen'
+        queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn()
-        a_kind_of_magic.artist = queen
-        a_kind_of_magic.title = u'A Kind of Magic'
+        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        dont_lose_your_head = Song()
-        dont_lose_your_head.albumn = a_kind_of_magic
-        dont_lose_your_head.title = u"Don't Lose Your Head"
+        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
         # Finish the versioning transaction.
@@ -201,9 +182,7 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versionsing transaction.
         vc.start()
 
-        princes_of_the_universe = Song()
-        princes_of_the_universe.albumn = a_kind_of_magic
-        princes_of_the_universe.title = u'Princes of the Universe'
+        princes_of_the_universe = Song(albumn=a_kind_of_magic, title='Princes of the Universe')
         princes_of_the_universe.save()
 
         dont_lose_your_head.delete()
@@ -214,9 +193,7 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versionsing transaction.
         vc.start()
 
-        friends_will_be_friends = Song()
-        friends_will_be_friends.albumn = a_kind_of_magic
-        friends_will_be_friends.title = 'Friends Will Be Friends'
+        friends_will_be_friends = Song(albumn=a_kind_of_magic, title='Friends Will Be Friends')
         friends_will_be_friends.save()
 
         # Finish the versioning transaction.
@@ -227,12 +204,10 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual([ x.title for x in Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all() ], ["Princes of the Universe", "Friends Will Be Friends"])
 
     def test_disabled_functions(self):
-        queen = Artist()
-        queen.name = 'Queen'
+        queen = Artist(name='Queen')
         queen.save()
 
-        prince = Artist()
-        prince.name = 'Price'
+        prince = Artist(name='Price')
         prince.save()
 
         self.assertEqual(Artist.objects.count(), 2)
@@ -248,23 +223,16 @@ class PublishedModelTestCase(VersionsTestCase):
         # Start a managed versioning transaction.
         vc.start()
 
-        queen = Artist()
-        queen.name = u'Queen'
+        queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn()
-        a_kind_of_magic.artist = queen
-        a_kind_of_magic.title = u'A Kind of Magic'
+        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        dont_lose_your_head = Song()
-        dont_lose_your_head.albumn = a_kind_of_magic
-        dont_lose_your_head.title = u"Don't Lose Your Head"
+        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
-        original_lyrics = Lyrics()
-        original_lyrics.song = dont_lose_your_head
-        original_lyrics.text = """Dont lose your head"""
+        original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
         original_lyrics.save()
 
         # Finish the versioning transaction.
