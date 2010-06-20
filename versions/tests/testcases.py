@@ -1,6 +1,7 @@
 import shutil
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -259,3 +260,63 @@ No dont lose you head
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(first_revision).get(pk=original_lyrics.pk).text, "Dont lose your head")
         self.assertEquals(Lyrics.objects.version(second_revision).get(pk=original_lyrics.pk).text, new_lyrics)
+
+        # Start a managed versioning transaction.
+        vc.start()
+
+        new_lyrics = """Dont lose your head
+Dont lose your head
+Dont lose your head
+Dont lose your head
+No dont lose you head
+Dont lose you head
+Hear what I say
+Dont lose your way - yeah
+Remember loves stronger remember love walks tall
+"""
+
+        published_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
+        published_lyrics.versions_published = True
+        published_lyrics.text = new_lyrics
+        published_lyrics.save()
+
+        third_revision = vc.finish().values()[0]
+
+        # Ensure the database version still points to the old lyrics.
+        self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, new_lyrics)
+        # Ensure that the revisions contain the correct information.
+        self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
+
+    def test_many_to_many_fields(self):
+        fan1 = User(username='fan1', email='fan1@example.com')
+        fan1.save()
+
+        fan2 = User(username='fan2', email='fan2@example.com')
+        fan2.save()
+
+        fan3 = User(username='fan3', email='fan3@example.com')
+        fan3.save()
+
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen = Artist(name='Queen')
+        queen.save()
+
+        queen.fans.add(fan1)
+
+        # Finish the versioning transaction.
+        first_revision = vc.finish().values()[0]
+
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen.fans = [fan2, fan3]
+
+        # Finish the versioning transaction.
+        second_revision = vc.finish().values()[0]
+
+        self.assertEqual(list(Artist.objects.revision(first_revision).get(pk=queen.pk).fans.all()), [fan1])
+        self.assertEqual(list(Artist.objects.revision(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
