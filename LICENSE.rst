@@ -1,5 +1,5 @@
-The MIT License
-===============
+MIT License
+===========
 
 Copyright (c) 2010 Nowell Strite <nowell@strite.org>
 
