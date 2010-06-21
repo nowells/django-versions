@@ -1,13 +1,13 @@
 Running the test suite
 ======================
 
-The ``versions.tests`` package is set up as a project which holds a test
-settings module and defines models for use in testing Versions. You can run
-the tests from the command-line using the ``django-admin.py`` script,
-specifying that the test settings module should be used::
+The ``versions.tests`` package is set up as a project which defines models
+and tests that can be invoked from the shell. You can run the tests with
+the included script::
 
-    PYTHONPATH=.:$PYTHONPATH django-admin.py test --settings=versions.tests.settings tests
+    ./runtests.py
 
-Or if you forget that command, you can always just run the ``run_tests`` command located in the bin directory::
+Or, if you prefer, you can run the script with standard python package distribution testing.
 
-    ./bin/run_tests
+    python setup.py test
+
