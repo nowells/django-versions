@@ -9,7 +9,7 @@ version = '0.1'
 setup(
     name='django-versions',
     version=version,
-    description="A django application to enable versioning of Django models.",
+    description="A django application to enable versioning of data stored in Django models.",
     long_description=open('README.rst', 'r').read(),
     author='Nowell Strite',
     author_email='nowell@strite.org',
