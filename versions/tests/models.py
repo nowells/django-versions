@@ -1,10 +1,10 @@
 from django.contrib.auth.models import User
 from django.db import models
-from versions import VersionsModel, PublishedModel
+from versions import VersionsModel, PublishedModel, VersionsManyToManyField
 
 class Artist(VersionsModel):
     name = models.CharField(max_length=50)
-    fans = models.ManyToManyField(User, blank=True, related_name='favorite_artists')
+    fans = VersionsManyToManyField(User, blank=True, related_name='favorite_artists')
 
 class Albumn(VersionsModel):
     artist = models.ForeignKey(Artist, related_name='albumns')
