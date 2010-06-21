@@ -14,9 +14,6 @@ class VersionsModel(models.Model):
     # Used to store the revision of the model.
     _versions_revision = None
 
-    def __init__(self, *args, **kwargs):
-        super(VersionsModel, self).__init__(*args, **kwargs)
-
     def save(self, *args, **kwargs):
         only_version = kwargs.pop('only_version', False)
         if not only_version:
