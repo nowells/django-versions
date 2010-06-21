@@ -6,3 +6,5 @@ django_versions.egg-info/
 build/
 dist/
 docs/_build/
+versions/tests/versions.db
+lib/

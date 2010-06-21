@@ -108,6 +108,8 @@ class Versions(object):
         return pickle.loads(data)
 
     def data(self, instance):
+        from versions.fields import VersionsManyToManyField
+
         fields = [ x for x in instance._meta.fields if not x.primary_key ]
 
         #if self.include is not None:
@@ -116,10 +118,15 @@ class Versions(object):
         #    fields = [ x for x in fields if x.name not in self.exclude ]
 
         field_names = [ x.name for x in fields ]
-
         field_data = dict([ (x[0], x[1],) for x in instance.__dict__.items() if x[0] in field_names ])
+
         related_data = {}
+
         many_to_many_data = {}
+        many_to_many_fields = [ x for x in instance._meta.many_to_many if isinstance(x, VersionsManyToManyField) ]
+        for many_to_many_field in many_to_many_fields:
+            many_to_many_data[many_to_many_field.attname] = getattr(instance, many_to_many_field.attname).values_list('pk', flat=True)
+
         return {
             'field': field_data,
             'related': related_data,

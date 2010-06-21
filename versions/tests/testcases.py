@@ -318,5 +318,5 @@ Remember loves stronger remember love walks tall
         # Finish the versioning transaction.
         second_revision = vc.finish().values()[0]
 
-        self.assertEqual(list(Artist.objects.revision(first_revision).get(pk=queen.pk).fans.all()), [fan1])
-        self.assertEqual(list(Artist.objects.revision(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
+        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
+        self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])

@@ -1,6 +1,8 @@
 from django.db import connection
 from django.db.models.fields import related
 
+from versions.repo import Versions
+
 class VersionsManyToManyField(related.ManyToManyField):
     def contribute_to_class(self, cls, name):
         super(VersionsManyToManyField, self).contribute_to_class(cls, name)
@@ -18,13 +20,22 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
         RelatedManager = related.create_many_related_manager(superclass, self.field.rel.through)
         class VersionsRelatedManager(RelatedManager):
             def add(self, *args, **kwargs):
-                return super(VersionsRelatedManager, self).add(*args, **kwargs)
+                result = super(VersionsRelatedManager, self).add(*args, **kwargs)
+                vc = Versions()
+                vc.stage(self.reverse_model_instance)
+                return result
 
             def remove(self, *args, **kwargs):
-                return super(VersionsRelatedManager, self).remove(*args, **kwargs)
+                result = super(VersionsRelatedManager, self).remove(*args, **kwargs)
+                vc = Versions()
+                vc.stage(self.reverse_model_instance)
+                return result
 
             def clear(self, *args, **kwargs):
-                return super(VersionsRelatedManager, self).clear(*args, **kwargs)
+                result = super(VersionsRelatedManager, self).clear(*args, **kwargs)
+                vc = Versions()
+                vc.stage(self.reverse_model_instance)
+                return result
 
         qn = connection.ops.quote_name
         manager = VersionsRelatedManager(
