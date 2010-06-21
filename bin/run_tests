@@ -1,3 +1,0 @@
-#!/bin/bash
-
-PYTHONPATH=. django-admin.py test --settings=versions.tests.settings tests

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import models
-from versions import VersionsModel, PublishedModel, VersionsManyToManyField
+from versions.fields import VersionsManyToManyField
+from versions.models import VersionsModel, PublishedModel
 
 class Artist(VersionsModel):
     name = models.CharField(max_length=50)

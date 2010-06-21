@@ -1,16 +1,20 @@
 #!/usr/bin/env python
 
+import os
 import sys
 from setuptools import setup
-import os
 
-version = '0.1'
+from versions import VERSION
+
+f = open(os.path.join(os.path.dirname(__file__), 'README.rst'))
+README = f.read()
+f.close()
 
 setup(
     name='django-versions',
-    version=version,
+    version='.'.join(map(str, VERSION)),
     description="A django application to enable versioning of data stored in Django models.",
-    long_description=open('README.rst', 'r').read(),
+    long_description=README,
     author='Nowell Strite',
     author_email='nowell@strite.org',
     url='http://github.com/nowells/django-versions/',
@@ -36,4 +40,5 @@ setup(
         'Topic :: Software Development :: Version Control',
         'Topic :: Utilities',
         ],
+    test_suite='runtests.runtests',
     )
