@@ -81,10 +81,10 @@ class Versions(object):
                 ctx = context.memctx(
                     repo=repository,
                     parents=('tip', None),
-                    text="Commit Message",
+                    text="django-versions commit",
                     files=items.keys(),
                     filectxfn=file_callback,
-                    user="Nowell Strite <nowell@strite.org>",
+                    user="django-versions",
                     )
 
                 revision = node.hex(repository.commitctx(ctx))
@@ -125,7 +125,7 @@ class Versions(object):
         many_to_many_data = {}
         many_to_many_fields = [ x for x in instance._meta.many_to_many if isinstance(x, VersionsManyToManyField) ]
         for many_to_many_field in many_to_many_fields:
-            many_to_many_data[many_to_many_field.attname] = getattr(instance, many_to_many_field.attname).values_list('pk', flat=True)
+            many_to_many_data[many_to_many_field.attname] = list(getattr(instance, many_to_many_field.attname).values_list('pk', flat=True))
 
         return {
             'field': field_data,

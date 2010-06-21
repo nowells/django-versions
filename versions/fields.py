@@ -4,11 +4,19 @@ from django.db.models.fields import related
 from versions.repo import Versions
 
 class VersionsManyToManyField(related.ManyToManyField):
+    """
+    A field used to allow VersionsModel objects to track non-versioned ManyToManyField objects associated with
+    a model at a given revision.
+    """
     def contribute_to_class(self, cls, name):
         super(VersionsManyToManyField, self).contribute_to_class(cls, name)
-        setattr(cls, self.name, VersionsReverseManyRelatedObjectsDescriptor(self))
+        setattr(cls, self.name, VersionsReverseManyRelatedObjectsDescriptor(self, name))
 
 class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObjectsDescriptor):
+    def __init__(self, cls, name):
+        super(VersionsReverseManyRelatedObjectsDescriptor, self).__init__(cls)
+        self.field_name = name
+
     def __get__(self, instance, instance_type=None):
         if instance is None:
             return self
@@ -18,6 +26,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
         rel_model=self.field.rel.to
         superclass = rel_model._default_manager.__class__
         RelatedManager = related.create_many_related_manager(superclass, self.field.rel.through)
+        field_name = self.field_name
         class VersionsRelatedManager(RelatedManager):
             def add(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).add(*args, **kwargs)
@@ -36,6 +45,18 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 vc = Versions()
                 vc.stage(self.reverse_model_instance)
                 return result
+
+            def get_query_set(self, revision=None):
+                if self.reverse_model_instance is not None:
+                    revision = revision and revision or self.reverse_model_instance._versions_revision
+
+                if revision is not None:
+                    vc = Versions()
+                    data = vc.version(self.reverse_model_instance, rev=revision)
+                    self.core_filters = {'pk__in': data['many_to_many'].get(field_name)}
+
+                results = super(VersionsRelatedManager, self).get_query_set()
+                return results
 
         qn = connection.ops.quote_name
         manager = VersionsRelatedManager(
