@@ -117,8 +117,8 @@ class VersionsModelTestCase(VersionsTestCase):
         third_a_kind_of_magic = Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk)
 
         # Verify that the data is the same.
-        self.assertEqual(vc.data(first_a_kind_of_magic), vc.data(second_a_kind_of_magic))
-        self.assertEqual(vc.data(second_a_kind_of_magic), vc.data(third_a_kind_of_magic))
+        self.assertEqual(vc.data(first_a_kind_of_magic)['field'], vc.data(second_a_kind_of_magic)['field'])
+        self.assertEqual(vc.data(second_a_kind_of_magic)['field'], vc.data(third_a_kind_of_magic)['field'])
 
         # Verify that princes_of_the_universe does not exist at the first_revision (it was created on the second revision)
         self.assertRaises(ObjectDoesNotExist, first_a_kind_of_magic.songs.get, pk=princes_of_the_universe.pk)

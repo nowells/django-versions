@@ -16,6 +16,7 @@ from mercurial import node
 from mercurial import ui
 
 from django.conf import settings
+from django.db.models.fields import related
 from versions.exceptions import VersionDoesNotExist
 
 # Stores commits during a Managed Version Control session.
@@ -108,29 +109,23 @@ class Versions(object):
         return pickle.loads(data)
 
     def data(self, instance):
-        from versions.fields import VersionsManyToManyField
-
         fields = [ x for x in instance._meta.fields if not x.primary_key ]
-
-        #if self.include is not None:
-        #    fields = [ x for x in fields if x.name in self.include ]
-        #elif self.exclude is not None:
-        #    fields = [ x for x in fields if x.name not in self.exclude ]
-
         field_names = [ x.name for x in fields ]
         field_data = dict([ (x[0], x[1],) for x in instance.__dict__.items() if x[0] in field_names ])
-
         related_data = {}
 
-        many_to_many_data = {}
-        many_to_many_fields = [ x for x in instance._meta.many_to_many if isinstance(x, VersionsManyToManyField) ]
-        for many_to_many_field in many_to_many_fields:
-            many_to_many_data[many_to_many_field.attname] = list(getattr(instance, many_to_many_field.attname).values_list('pk', flat=True))
+        try:
+            name_map = instance._meta._name_map
+        except AttributeError:
+            name_map = instance._meta.init_name_map()
+
+        for name, data in name_map.items():
+            if isinstance(data[0], (related.RelatedObject, related.ManyToManyField)):
+                related_data[name] = [ x['pk'] for x in getattr(instance, name).values('pk') ]
 
         return {
             'field': field_data,
             'related': related_data,
-            'many_to_many': many_to_many_data,
             }
 
     def _version(self, cls, pk, rev='tip'):

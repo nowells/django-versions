@@ -74,7 +74,6 @@ class VersionsQuery(sql.Query):
                         rev_data = vc._version(field['model'], row[field['pk']], rev=self._revision)
                         field_data = rev_data.get('field', {})
                         related_data = rev_data.get('related', {})
-                        many_to_many_data = rev_data.get('many_to_many', {})
 
                         # Exclude objects that were deleted in the past.
                         if field_data.get('versions_deleted', False):

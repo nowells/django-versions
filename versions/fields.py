@@ -53,7 +53,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 if revision is not None:
                     vc = Versions()
                     data = vc.version(self.reverse_model_instance, rev=revision)
-                    self.core_filters = {'pk__in': data['many_to_many'].get(field_name)}
+                    self.core_filters = {'pk__in': data['related'].get(field_name)}
 
                 results = super(VersionsRelatedManager, self).get_query_set()
                 return results
