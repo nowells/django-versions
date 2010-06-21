@@ -113,20 +113,20 @@ class VersionsQuerySet(query.QuerySet):
 
     def count(self, *args, **kwargs):
         if self._revision is not None:
-            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'count')
+            raise VersionsException('You cannot call `%s` on a queryset that is finding versioned objects.' % 'count')
         return super(VersionsQuerySet, self).count(*args, **kwargs)
 
     def values_list(self, *args, **kwargs):
         if self._revision is not None:
-            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'values_list')
+            raise VersionsException('You cannot call `%s` on a queryset that is finding versioned objects.' % 'values_list')
         return super(VersionsQuerySet, self).values_list(*args, **kwargs)
 
     def aggregate(self, *args, **kwargs):
         if self._revision is not None:
-            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'aggregate')
+            raise VersionsException('You cannot call `%s` on a queryset that is finding versioned objects.' % 'aggregate')
         return super(VersionsQuerySet, self).aggregate(*args, **kwargs)
 
     def annotate(self, *args, **kwargs):
         if self._revision is not None:
-            raise VersionsException('You cannot use run a `%s` operation on a queryset that is finding versioned objects.' % 'annotate')
+            raise VersionsException('You cannot call `%s` on a queryset that is finding versioned objects.' % 'annotate')
         return super(VersionsQuerySet, self).annotate(*args, **kwargs)
