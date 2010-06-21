@@ -219,6 +219,72 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertRaises(VersionsException, Artist.objects.version('tip').annotate)
         self.assertRaises(VersionsException, Artist.objects.version('tip').values_list)
 
+    def test_many_to_many_fields(self):
+        fan1 = User(username='fan1', email='fan1@example.com')
+        fan1.save()
+
+        fan2 = User(username='fan2', email='fan2@example.com')
+        fan2.save()
+
+        fan3 = User(username='fan3', email='fan3@example.com')
+        fan3.save()
+
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen = Artist(name='Queen')
+        queen.save()
+
+        queen.fans.add(fan1)
+
+        # Finish the versioning transaction.
+        first_revision = vc.finish().values()[0]
+
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen.fans = [fan2, fan3]
+
+        # Finish the versioning transaction.
+        second_revision = vc.finish().values()[0]
+
+        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
+        self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
+
+    def test_reverse_foreign_keys(self):
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen = Artist(name='Queen')
+        queen.save()
+
+        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic.save()
+
+        journey_albumn = Albumn(artist=queen, title='Journey')
+        journey_albumn.save()
+
+        # Finish the versioning transaction.
+        first_revision = vc.finish().values()[0]
+
+        # Start a managed versioning transaction.
+        vc.start()
+
+        journey = Artist(name='Journey')
+        journey.save()
+
+        journey_albumn.artist = journey
+        journey_albumn.save()
+
+        # Finish the versioning transaction.
+        second_revision = vc.finish().values()[0]
+
+        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic, journey_albumn])
+        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic])
+
 class PublishedModelTestCase(VersionsTestCase):
     def test_unpublished(self):
         vc = Versions()
@@ -287,37 +353,3 @@ Remember loves stronger remember love walks tall
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, new_lyrics)
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
-
-    def test_many_to_many_fields(self):
-        fan1 = User(username='fan1', email='fan1@example.com')
-        fan1.save()
-
-        fan2 = User(username='fan2', email='fan2@example.com')
-        fan2.save()
-
-        fan3 = User(username='fan3', email='fan3@example.com')
-        fan3.save()
-
-        vc = Versions()
-        # Start a managed versioning transaction.
-        vc.start()
-
-        queen = Artist(name='Queen')
-        queen.save()
-
-        queen.fans.add(fan1)
-
-        # Finish the versioning transaction.
-        first_revision = vc.finish().values()[0]
-
-        vc = Versions()
-        # Start a managed versioning transaction.
-        vc.start()
-
-        queen.fans = [fan2, fan3]
-
-        # Finish the versioning transaction.
-        second_revision = vc.finish().values()[0]
-
-        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
-        self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
