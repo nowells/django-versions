@@ -19,6 +19,7 @@ setup(
     install_requires=['mercurial>=1.5.2'],
     zip_safe=False,
     classifiers=[
+        'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
