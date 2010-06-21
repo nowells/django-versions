@@ -116,7 +116,15 @@ class Versions(object):
         #    fields = [ x for x in fields if x.name not in self.exclude ]
 
         field_names = [ x.name for x in fields ]
-        return dict([ (x[0], x[1],) for x in instance.__dict__.items() if x[0] in field_names ])
+
+        field_data = dict([ (x[0], x[1],) for x in instance.__dict__.items() if x[0] in field_names ])
+        related_data = {}
+        many_to_many_data = {}
+        return {
+            'field': field_data,
+            'related': related_data,
+            'many_to_many': many_to_many_data,
+            }
 
     def _version(self, cls, pk, rev='tip'):
         repo_path = self.get_repository_path(cls, pk)
