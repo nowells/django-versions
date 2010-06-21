@@ -23,6 +23,7 @@ Dependencies
 ------------
 
 * Mercurial >= 1.5.2
+* Django == 1.1
 
 Installing django-versions
 --------------------------
@@ -37,6 +38,10 @@ If you want to install the package without checking out the source you should ru
 
     # OR if you don't have pip installed (you should definitely check out pip)
     easy_install http://github.com/nowells/django-versions/tarball/v0.1
+
+For the time being, we need to patch Django to allow us to gain access to the related model from Manager classes. There is a patch included at the root of the source tree ``django.patch`` that includes the required changes. To patch django, go to the root of your checkout of django 1.1.X and run::
+
+    patch -p0 < /path/to/django-versions/django.patch
 
 Add ``VERSIONS_REPOSITORY_ROOT`` to your settings file, pointing to the location where you would like ``django-versions`` to create and store your model history::
 
