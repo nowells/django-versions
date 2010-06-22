@@ -354,3 +354,26 @@ Remember loves stronger remember love walks tall
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, new_lyrics)
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
+
+    def test_unpublished_new(self):
+        vc = Versions()
+        # Start a managed versioning transaction.
+        vc.start()
+
+        queen = Artist(name='Queen')
+        queen.save()
+
+        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic.save()
+
+        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
+        dont_lose_your_head.save()
+
+        original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
+        original_lyrics.versions_published = False
+        original_lyrics.save()
+
+        # Finish the versioning transaction.
+        first_revision = vc.finish().values()[0]
+
+        self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)

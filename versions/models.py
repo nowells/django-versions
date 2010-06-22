@@ -16,7 +16,9 @@ class VersionsModel(models.Model):
 
     def save(self, *args, **kwargs):
         only_version = kwargs.pop('only_version', False)
-        if not only_version:
+
+        # We save the model only if it is a new instance, or if we have not been told to bypass saving.
+        if self.pk is None or not only_version:
             super(VersionsModel, self).save(*args, **kwargs)
 
         vc = Versions()
