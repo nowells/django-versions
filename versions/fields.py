@@ -3,6 +3,37 @@ from django.db.models.fields import related
 
 from versions.repo import Versions
 
+class VersionsForeignKey(related.ForeignKey):
+    """
+    A field used to allow VersionsModel objects to track non-versioned ForeignKey objects associated with
+    a model at a given revision.
+    """
+    def contribute_to_related_class(self, cls, related):
+        super(VersionsForeignKey, self).contribute_to_related_class(cls, related)
+        setattr(cls, related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(related))
+
+class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescriptor):
+    def __get__(self, instance, instance_type=None):
+        manager = super(VersionsForeignRelatedObjectsDescriptor, self).__get__(instance, instance_type)
+        if not isinstance(manager, self.__class__):
+            class VersionsRelatedManager(manager.__class__):
+                def get_query_set(self, *args, **kwargs):
+                    revision = None
+                    if self.related_model_instance is not None and hasattr(self.related_model_instance, '_versions_revision'):
+                        revision = self.related_model_instance._versions_revision
+
+                    if revision is not None:
+                        vc = Versions()
+                        data = vc.version(self.related_model_instance, rev=revision)
+                        pks = data['related'].get(self.related_model_field_name, [])
+                        self.core_filters = {'%s__pk__in' % self.model_field_name: pks}
+
+                    return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
+            new_manager = VersionsRelatedManager()
+            new_manager.__dict__ = manager.__dict__
+            manager = new_manager
+        return manager
+
 class VersionsManyToManyField(related.ManyToManyField):
     """
     A field used to allow VersionsModel objects to track non-versioned ManyToManyField objects associated with
