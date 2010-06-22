@@ -77,6 +77,9 @@ class Versions(object):
                     copied=False,
                     )
 
+            # We want to capture all mercurial output for these commits.
+            repository.ui.pushbuffer()
+
             lock = repository.lock()
             try:
                 ctx = context.memctx(
@@ -87,14 +90,12 @@ class Versions(object):
                     filectxfn=file_callback,
                     user="django-versions",
                     )
-
                 revision = node.hex(repository.commitctx(ctx))
-
                 hg.update(repository, repository['tip'].node())
-
                 return revision
             finally:
                 lock.release()
+                repository.ui.popbuffer()
 
     def get_repository_path(self, cls, pk):
         return os.path.join(settings.VERSIONS_REPOSITORY_ROOT, cls.__module__.rsplit('.')[-2])
