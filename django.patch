@@ -7,8 +7,8 @@ Index: django/db/models/manager.py
          self._set_creation_counter()
          self.model = None
 +        self.model_field_name = None
-+        self.reverse_model_instance = None
-+        self.reverse_model_related_name = None
++        self.related_model_instance = None
++        self.related_model_field_name = None
          self._inherited = False
  
      def contribute_to_class(self, model, name):
@@ -21,8 +21,8 @@ Index: django/db/models/fields/related.py
              # related fields, respect that.
              rel_mgr = self.field.rel.to._default_manager
 +            rel_mgr.model_field_name = self.field.rel.field_name
-+            rel_mgr.reverse_model_instance = instance
-+            rel_mgr.reverse_model_related_name = self.field.rel.related_name
++            rel_mgr.related_model_instance = instance
++            rel_mgr.related_model_field_name = self.field.rel.related_name
              if getattr(rel_mgr, 'use_for_related_fields', False):
                  rel_obj = rel_mgr.get(**params)
              else:
@@ -32,8 +32,8 @@ Index: django/db/models/fields/related.py
          manager.model = self.related.model
 -
 +        manager.model_field_name = rel_field.name
-+        manager.reverse_model_instance = instance
-+        manager.reverse_model_related_name = rel_field.rel.related_name
++        manager.related_model_instance = instance
++        manager.related_model_field_name = rel_field.rel.related_name
          return manager
  
  def create_many_related_manager(superclass, through=False):
@@ -43,8 +43,8 @@ Index: django/db/models/fields/related.py
          )
 -
 +        manager.model_field_name = self.related.field.name
-+        manager.reverse_model_instance = instance
-+        manager.reverse_model_related_name = self.related.field.related_name
++        manager.related_model_instance = instance
++        manager.related_model_field_name = self.related.field.related_name
          return manager
  
      def __set__(self, instance, value):
@@ -54,8 +54,8 @@ Index: django/db/models/fields/related.py
          )
 -
 +        manager.model_field_name = self.field.name
-+        manager.reverse_model_instance = instance
-+        manager.reverse_model_related_name = self.field.related_name
++        manager.related_model_instance = instance
++        manager.related_model_field_name = self.field.related_name
          return manager
  
      def __set__(self, instance, value):

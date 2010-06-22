@@ -19,8 +19,8 @@ class VersionsManager(models.Manager):
         return vc.diff(instance, rev0, rev1)
 
     def get_query_set(self, revision=None):
-        if self.reverse_model_instance is not None:
-            revision = revision and revision or self.reverse_model_instance._versions_revision
+        if self.related_model_instance is not None:
+            revision = revision and revision or self.related_model_instance._versions_revision
 
         qs = VersionsQuerySet(model=self.model, query=VersionsQuery(self.model, connection, revision=revision), revision=revision)
 

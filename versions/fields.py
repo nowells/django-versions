@@ -31,28 +31,28 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
             def add(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).add(*args, **kwargs)
                 vc = Versions()
-                vc.stage(self.reverse_model_instance)
+                vc.stage(self.related_model_instance)
                 return result
 
             def remove(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).remove(*args, **kwargs)
                 vc = Versions()
-                vc.stage(self.reverse_model_instance)
+                vc.stage(self.related_model_instance)
                 return result
 
             def clear(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).clear(*args, **kwargs)
                 vc = Versions()
-                vc.stage(self.reverse_model_instance)
+                vc.stage(self.related_model_instance)
                 return result
 
             def get_query_set(self, revision=None):
-                if self.reverse_model_instance is not None:
-                    revision = revision and revision or self.reverse_model_instance._versions_revision
+                if self.related_model_instance is not None:
+                    revision = revision and revision or self.related_model_instance._versions_revision
 
                 if revision is not None:
                     vc = Versions()
-                    data = vc.version(self.reverse_model_instance, rev=revision)
+                    data = vc.version(self.related_model_instance, rev=revision)
                     self.core_filters = {'pk__in': data['related'].get(field_name)}
 
                 results = super(VersionsRelatedManager, self).get_query_set()
@@ -68,5 +68,5 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
             source_col_name=qn(self.field.m2m_column_name()),
             target_col_name=qn(self.field.m2m_reverse_name())
         )
-        manager.reverse_model_instance = instance
+        manager.related_model_instance = instance
         return manager
