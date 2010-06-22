@@ -1,7 +1,23 @@
 from django.db import models
 
+from versions.exceptions import VersionsException
 from versions.managers import VersionsManager, PublishedManager
 from versions.repo import Versions
+
+class VersionsOptions(object):
+    @classmethod
+    def contribute_to_class(klass, cls, name):
+        include = getattr(klass, 'include', [])
+        exclude = getattr(klass, 'exclude', [])
+
+        invalid_excludes = set(['versions_deleted', 'versions_published']).intersection(exclude)
+        if invalid_excludes:
+            raise VersionsException('You cannot include `%s` in a VersionOptions exclude.' % ', '.join(invalid_excludes))
+
+        cls._versions_options = VersionsOptions()
+        cls._versions_options.include = include
+        cls._versions_options.exclude = exclude
+        cls._versions_options.core_include = ['versions_deleted', 'versions_published']
 
 class VersionsModel(models.Model):
     versions_deleted = models.BooleanField(default=False)
@@ -10,6 +26,10 @@ class VersionsModel(models.Model):
 
     class Meta:
         abstract = True
+
+    class Versions(VersionsOptions):
+        exclude = []
+        include = []
 
     # Used to store the revision of the model.
     _versions_revision = None

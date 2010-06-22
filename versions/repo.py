@@ -110,8 +110,13 @@ class Versions(object):
         return pickle.loads(data)
 
     def data(self, instance):
-        fields = [ x for x in instance._meta.fields if not x.primary_key ]
-        field_names = [ x.name for x in fields ]
+        field_names = [ x.name for x in instance._meta.fields if not x.primary_key ]
+
+        if instance._versions_options.include:
+            field_names = [ x for x in field_names if x in (instance._versions_options.include + instance._versions_options.core_include) ]
+        elif instance._versions_options.exclude:
+            field_names = [ x for x in field_names if x not in instance._versions_options.exclude ]
+
         field_data = dict([ (x[0], x[1],) for x in instance.__dict__.items() if x[0] in field_names ])
         related_data = {}
 

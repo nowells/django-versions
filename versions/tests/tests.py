@@ -377,3 +377,23 @@ Remember loves stronger remember love walks tall
         first_revision = vc.finish().values()[0]
 
         self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)
+
+class VersionsOptionsTestCase(VersionsTestCase):
+    def test_field_exclude(self):
+        queen = Artist(name='Queen')
+        queen.save()
+
+        vc = Versions()
+        data = vc.data(queen)
+        self.assertEqual(data['field'].keys(), ['name', 'versions_deleted'])
+
+    def test_field_include(self):
+        queen = Artist(name='Queen')
+        queen.save()
+
+        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic.save()
+
+        vc = Versions()
+        data = vc.data(a_kind_of_magic)
+        self.assertEqual(data['field'].keys(), ['versions_deleted', 'title'])
