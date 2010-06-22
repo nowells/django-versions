@@ -1,7 +1,14 @@
 from django.db import connection
 from django.db.models.fields import related
-
+from django.db.models import signals
 from versions.repo import Versions
+
+def stage_related_models(sender, instance, created, **kwargs):
+    for field in instance._meta.local_fields:
+        if isinstance(field, VersionsForeignKey):
+            model = getattr(instance, field.name)
+            vc = Versions()
+            vc.stage(model)
 
 class VersionsForeignKey(related.ForeignKey):
     """
@@ -11,6 +18,7 @@ class VersionsForeignKey(related.ForeignKey):
     def contribute_to_related_class(self, cls, related):
         super(VersionsForeignKey, self).contribute_to_related_class(cls, related)
         setattr(cls, related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(related))
+        signals.post_save.connect(stage_related_models, sender=related.model)
 
 class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescriptor):
     def __get__(self, instance, instance_type=None):
@@ -26,7 +34,7 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
                         vc = Versions()
                         data = vc.version(self.related_model_instance, rev=revision)
                         pks = data['related'].get(self.related_model_field_name, [])
-                        self.core_filters = {'%s__pk__in' % self.model_field_name: pks}
+                        self.core_filters = {'pk__in': pks}
 
                     return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
             new_manager = VersionsRelatedManager()

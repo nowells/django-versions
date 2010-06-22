@@ -27,7 +27,10 @@ class VersionsQuery(sql.Query):
 
         fields = {}
         for offset, field in enumerate(field_names):
-            table, column = field.split('.')
+            try:
+                table, column = field.split('.')
+            except ValueError:
+                continue
             if table in _versions_table_mappings:
                 model = _versions_table_mappings[table]
 

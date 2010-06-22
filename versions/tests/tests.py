@@ -201,9 +201,9 @@ class VersionsModelTestCase(VersionsTestCase):
         # Finish the versioning transaction.
         third_revision = vc.finish().values()[0]
 
-        self.assertEqual([ x.title for x in Albumn.objects.version(first_revision).get(pk=a_kind_of_magic.pk).songs.all() ], ["Don't Lose Your Head"])
-        self.assertEqual([ x.title for x in Albumn.objects.version(second_revision).get(pk=a_kind_of_magic.pk).songs.all() ], ["Princes of the Universe"])
-        self.assertEqual([ x.title for x in Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all() ], ["Princes of the Universe", "Friends Will Be Friends"])
+        self.assertEqual(list(Albumn.objects.version(first_revision).get(pk=a_kind_of_magic.pk).songs.all()), [dont_lose_your_head])
+        self.assertEqual(list(Albumn.objects.version(second_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe])
+        self.assertEqual(list(Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, friends_will_be_friends])
 
     def test_disabled_functions(self):
         queen = Artist(name='Queen')
@@ -283,7 +283,7 @@ class VersionsModelTestCase(VersionsTestCase):
         second_revision = vc.finish().values()[0]
 
         self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic, journey_albumn])
-        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic])
+        self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic])
 
 class PublishedModelTestCase(VersionsTestCase):
     def test_unpublished(self):
