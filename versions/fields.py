@@ -4,9 +4,13 @@ from django.db.models import signals
 from versions.repo import Versions
 
 def stage_related_models(sender, instance, created, **kwargs):
-    for field in instance._meta.local_fields:
-        if isinstance(field, VersionsForeignKey):
-            model = getattr(instance, field.name)
+    """
+    This signal handler is used to alert objects to changes in the ForeignKey of related objects.
+    We capture both the creation of a new ForeignKey relationship, as well as the removal or changing
+    of an existing ForeignKey relationship.
+    """
+    for field, models in instance._versions_related_updates.items():
+        for model in models:
             vc = Versions()
             vc.stage(model)
 
@@ -15,10 +19,23 @@ class VersionsForeignKey(related.ForeignKey):
     A field used to allow VersionsModel objects to track non-versioned ForeignKey objects associated with
     a model at a given revision.
     """
+    def contribute_to_class(self, cls, name):
+        cls._versions_related_updates = {}
+        super(VersionsForeignKey, self).contribute_to_class(cls, name)
+        setattr(cls, self.name, VersionsReverseSingleRelatedObjectDescriptor(self))
+
     def contribute_to_related_class(self, cls, related):
         super(VersionsForeignKey, self).contribute_to_related_class(cls, related)
         setattr(cls, related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(related))
-        signals.post_save.connect(stage_related_models, sender=related.model)
+        signals.post_save.connect(stage_related_models, sender=related.model, dispatch_uid='versions_foreignkey_related_object_update')
+
+class VersionsReverseSingleRelatedObjectDescriptor(related.ReverseSingleRelatedObjectDescriptor):
+    def __set__(self, instance, value):
+        old_value = getattr(instance, self.field.name, None)
+        result = super(VersionsReverseSingleRelatedObjectDescriptor, self).__set__(instance, value)
+        if old_value != value:
+            instance._versions_related_updates[self.field.name] = [ x for x in [old_value, value] if x is not None ]
+        return result
 
 class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescriptor):
     def __get__(self, instance, instance_type=None):
