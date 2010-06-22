@@ -39,25 +39,26 @@ class VersionsReverseSingleRelatedObjectDescriptor(related.ReverseSingleRelatedO
 
 class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescriptor):
     def __get__(self, instance, instance_type=None):
+        if instance is None:
+            return self
+
         manager = super(VersionsForeignRelatedObjectsDescriptor, self).__get__(instance, instance_type)
-        if not isinstance(manager, self.__class__):
-            class VersionsRelatedManager(manager.__class__):
-                def get_query_set(self, *args, **kwargs):
-                    revision = None
-                    if self.related_model_instance is not None and hasattr(self.related_model_instance, '_versions_revision'):
-                        revision = self.related_model_instance._versions_revision
+        class VersionsRelatedManager(manager.__class__):
+            def get_query_set(self, *args, **kwargs):
+                revision = None
+                if self.related_model_instance is not None and hasattr(self.related_model_instance, '_versions_revision'):
+                    revision = self.related_model_instance._versions_revision
 
-                    if revision is not None:
-                        vc = Versions()
-                        data = vc.version(self.related_model_instance, rev=revision)
-                        pks = data['related'].get(self.related_model_field_name, [])
-                        self.core_filters = {'pk__in': pks}
+                if revision is not None:
+                    vc = Versions()
+                    data = vc.version(self.related_model_instance, rev=revision)
+                    pks = data['related'].get(self.related_model_field_name, [])
+                    self.core_filters = {'pk__in': pks}
 
-                    return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
-            new_manager = VersionsRelatedManager()
-            new_manager.__dict__ = manager.__dict__
-            manager = new_manager
-        return manager
+                return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
+        new_manager = VersionsRelatedManager()
+        new_manager.__dict__ = manager.__dict__
+        return new_manager
 
 class VersionsManyToManyField(related.ManyToManyField):
     """
