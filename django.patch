@@ -53,9 +53,9 @@ Index: django/db/models/fields/related.py
              target_col_name=qn(self.field.m2m_reverse_name())
          )
 -
-+        manager.model_field_name = self.field.name
++        manager.model_field_name = self.field.related_query_name()
 +        manager.related_model_instance = instance
-+        manager.related_model_field_name = self.field.related_name
++        manager.related_model_field_name = self.field.attname
          return manager
  
      def __set__(self, instance, value):
