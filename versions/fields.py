@@ -10,13 +10,9 @@ class VersionsManyToManyField(related.ManyToManyField):
     """
     def contribute_to_class(self, cls, name):
         super(VersionsManyToManyField, self).contribute_to_class(cls, name)
-        setattr(cls, self.name, VersionsReverseManyRelatedObjectsDescriptor(self, name))
+        setattr(cls, self.name, VersionsReverseManyRelatedObjectsDescriptor(self))
 
 class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObjectsDescriptor):
-    def __init__(self, cls, name):
-        super(VersionsReverseManyRelatedObjectsDescriptor, self).__init__(cls)
-        self.field_name = name
-
     def __get__(self, instance, instance_type=None):
         if instance is None:
             return self
@@ -26,7 +22,6 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
         rel_model=self.field.rel.to
         superclass = rel_model._default_manager.__class__
         RelatedManager = related.create_many_related_manager(superclass, self.field.rel.through)
-        field_name = self.field_name
         class VersionsRelatedManager(RelatedManager):
             def add(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).add(*args, **kwargs)
@@ -53,7 +48,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 if revision is not None:
                     vc = Versions()
                     data = vc.version(self.related_model_instance, rev=revision)
-                    self.core_filters = {'pk__in': data['related'].get(field_name)}
+                    self.core_filters = {'pk__in': data['related'].get(self.related_model_field_name)}
 
                 results = super(VersionsRelatedManager, self).get_query_set()
                 return results
@@ -68,5 +63,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
             source_col_name=qn(self.field.m2m_column_name()),
             target_col_name=qn(self.field.m2m_reverse_name())
         )
+        manager.model_field_name = self.field.m2m_reverse_name()
         manager.related_model_instance = instance
+        manager.related_model_field_name = self.field.attname
         return manager
