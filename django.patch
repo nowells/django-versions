@@ -2,11 +2,13 @@ Index: django/db/models/manager.py
 ===================================================================
 --- django/db/models/manager.py	(revision 13362)
 +++ django/db/models/manager.py	(working copy)
-@@ -48,6 +48,7 @@
+@@ -48,6 +48,9 @@
          super(Manager, self).__init__()
          self._set_creation_counter()
          self.model = None
++        self.model_field_name = None
 +        self.reverse_model_instance = None
++        self.reverse_model_related_name = None
          self._inherited = False
  
      def contribute_to_class(self, model, name):
@@ -14,38 +16,46 @@ Index: django/db/models/fields/related.py
 ===================================================================
 --- django/db/models/fields/related.py	(revision 13362)
 +++ django/db/models/fields/related.py	(working copy)
-@@ -251,6 +251,7 @@
+@@ -251,6 +251,9 @@
              # If the related manager indicates that it should be used for
              # related fields, respect that.
              rel_mgr = self.field.rel.to._default_manager
++            rel_mgr.model_field_name = self.field.rel.field_name
 +            rel_mgr.reverse_model_instance = instance
++            rel_mgr.reverse_model_related_name = self.field.rel.related_name
              if getattr(rel_mgr, 'use_for_related_fields', False):
                  rel_obj = rel_mgr.get(**params)
              else:
-@@ -398,7 +399,7 @@
+@@ -398,7 +401,9 @@
          manager.core_filters = {'%s__%s' % (rel_field.name, attname):
                  getattr(instance, attname)}
          manager.model = self.related.model
 -
++        manager.model_field_name = rel_field.name
 +        manager.reverse_model_instance = instance
++        manager.reverse_model_related_name = rel_field.rel.related_name
          return manager
  
  def create_many_related_manager(superclass, through=False):
-@@ -566,7 +567,7 @@
+@@ -566,7 +571,9 @@
              source_col_name=qn(self.related.field.m2m_reverse_name()),
              target_col_name=qn(self.related.field.m2m_column_name())
          )
 -
++        manager.model_field_name = self.related.field.name
 +        manager.reverse_model_instance = instance
++        manager.reverse_model_related_name = self.related.field.related_name
          return manager
  
      def __set__(self, instance, value):
-@@ -611,7 +612,7 @@
+@@ -611,7 +618,9 @@
              source_col_name=qn(self.field.m2m_column_name()),
              target_col_name=qn(self.field.m2m_reverse_name())
          )
 -
++        manager.model_field_name = self.field.name
 +        manager.reverse_model_instance = instance
++        manager.reverse_model_related_name = self.field.related_name
          return manager
  
      def __set__(self, instance, value):
