@@ -31,4 +31,14 @@ class VersionsManager(models.Manager):
         return qs
 
 class PublishedManager(VersionsManager):
-    pass
+    def get_query_set(self, revision=None):
+        qs = super(PublishedManager, self).get_query_set(revision)
+
+        if self.related_model_instance is not None:
+            revision = revision and revision or self.related_model_instance._versions_revision
+
+        # If we are looking up the current state of the model instances, filter out unpublished models.
+        if revision is None:
+            qs = qs.filter(versions_published=True)
+
+        return qs

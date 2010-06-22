@@ -301,6 +301,7 @@ class PublishedModelTestCase(VersionsTestCase):
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
+        original_lyrics.versions_published = True
         original_lyrics.save()
 
         # Finish the versioning transaction.

@@ -27,7 +27,7 @@ class VersionsModel(models.Model):
         self.save()
 
 class PublishedModel(VersionsModel):
-    versions_published = models.BooleanField(default=True)
+    versions_published = models.BooleanField(default=False)
 
     objects = PublishedManager()
 
