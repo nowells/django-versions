@@ -1,7 +1,7 @@
 from django.db import connection
 from django.db.models.fields import related
 from django.db.models import signals
-from versions.repo import Versions
+from versions.repo import versions
 
 def stage_related_models(sender, instance, created, **kwargs):
     """
@@ -11,8 +11,7 @@ def stage_related_models(sender, instance, created, **kwargs):
     """
     for field, models in instance._versions_related_updates.items():
         for model in models:
-            vc = Versions()
-            vc.stage(model)
+            versions.stage(model)
 
 class VersionsForeignKey(related.ForeignKey):
     """
@@ -50,8 +49,7 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
                     revision = self.related_model_instance._versions_revision
 
                 if revision is not None:
-                    vc = Versions()
-                    data = vc.version(self.related_model_instance, rev=revision)
+                    data = versions.version(self.related_model_instance, rev=revision)
                     pks = data['related'].get(self.related_model_field_name, [])
                     self.core_filters = {'pk__in': pks}
 
@@ -82,20 +80,17 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
         class VersionsRelatedManager(RelatedManager):
             def add(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).add(*args, **kwargs)
-                vc = Versions()
-                vc.stage(self.related_model_instance)
+                versions.stage(self.related_model_instance)
                 return result
 
             def remove(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).remove(*args, **kwargs)
-                vc = Versions()
-                vc.stage(self.related_model_instance)
+                versions.stage(self.related_model_instance)
                 return result
 
             def clear(self, *args, **kwargs):
                 result = super(VersionsRelatedManager, self).clear(*args, **kwargs)
-                vc = Versions()
-                vc.stage(self.related_model_instance)
+                versions.stage(self.related_model_instance)
                 return result
 
             def get_query_set(self, revision=None):
@@ -103,8 +98,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     revision = revision and revision or self.related_model_instance._versions_revision
 
                 if revision is not None:
-                    vc = Versions()
-                    data = vc.version(self.related_model_instance, rev=revision)
+                    data = versions.version(self.related_model_instance, rev=revision)
                     self.core_filters = {'pk__in': data['related'].get(self.related_model_field_name)}
 
                 results = super(VersionsRelatedManager, self).get_query_set()

@@ -168,3 +168,5 @@ class Versions(object):
         for key in keys:
             difference[key] = ''.join(difflib.unified_diff(repr(inst0.get(key, '')), repr(inst1.get(key, ''))))
         return difference
+
+versions = Versions()

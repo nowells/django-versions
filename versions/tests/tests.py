@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
 
-from versions.repo import Versions
+from versions.repo import versions
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.tests.models import Artist, Albumn, Song, Lyrics
 
@@ -38,9 +38,8 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEquals(len(Artist.objects.revisions(prince)), 3)
 
     def test_managed_edits(self):
-        vc = Versions()
         # Start a managed versioning session.
-        vc.start()
+        versions.start()
 
         queen = Artist(name='Queen')
         queen.save()
@@ -61,7 +60,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEquals(len(Artist.objects.revisions(prince)), 0)
 
         # Finish the versioning session.
-        vc.finish()
+        versions.finish()
 
         # Verify that we have only commited once for all of the edits.
         self.assertEquals(len(Artist.objects.revisions(prince)), 1)
@@ -71,9 +70,8 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEquals(Artist.objects.revisions(prince), Artist.objects.revisions(queen))
 
     def test_related_model_edits(self):
-        vc = Versions()
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         queen = Artist(name='Queen')
         queen.save()
@@ -85,10 +83,10 @@ class VersionsModelTestCase(VersionsTestCase):
         dont_lose_your_head.save()
 
         # Finish the versioning transaction.
-        first_revision = vc.finish().values()[0]
+        first_revision = versions.finish().values()[0]
 
         # Start a managed versionsing transaction.
-        vc.start()
+        versions.start()
 
         princes_of_the_universe = Song(albumn=a_kind_of_magic, title='Princes of the Universe')
         princes_of_the_universe.save()
@@ -97,10 +95,10 @@ class VersionsModelTestCase(VersionsTestCase):
         dont_lose_your_head.save()
 
         # Finish the versioning transaction.
-        second_revision = vc.finish().values()[0]
+        second_revision = versions.finish().values()[0]
 
         # Start a managed versionsing transaction.
-        vc.start()
+        versions.start()
 
         princes_of_the_universe.seconds = 212
         princes_of_the_universe.save()
@@ -109,7 +107,7 @@ class VersionsModelTestCase(VersionsTestCase):
         friends_will_be_friends.save()
 
         # Finish the versioning transaction.
-        third_revision = vc.finish().values()[0]
+        third_revision = versions.finish().values()[0]
 
         # the a_kind_of_magic albumn was not modified after the initial commit. Verify that we can retrieve the a_kind_of_magic model from the various revisions
         first_a_kind_of_magic = Albumn.objects.version(first_revision).get(pk=a_kind_of_magic.pk)
@@ -117,8 +115,8 @@ class VersionsModelTestCase(VersionsTestCase):
         third_a_kind_of_magic = Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk)
 
         # Verify that the data is the same.
-        self.assertEqual(vc.data(first_a_kind_of_magic)['field'], vc.data(second_a_kind_of_magic)['field'])
-        self.assertEqual(vc.data(second_a_kind_of_magic)['field'], vc.data(third_a_kind_of_magic)['field'])
+        self.assertEqual(versions.data(first_a_kind_of_magic)['field'], versions.data(second_a_kind_of_magic)['field'])
+        self.assertEqual(versions.data(second_a_kind_of_magic)['field'], versions.data(third_a_kind_of_magic)['field'])
 
         # Verify that princes_of_the_universe does not exist at the first_revision (it was created on the second revision)
         self.assertRaises(ObjectDoesNotExist, first_a_kind_of_magic.songs.get, pk=princes_of_the_universe.pk)
@@ -165,9 +163,8 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEquals(third_prince._versions_revision, third_revision)
 
     def test_deletion(self):
-        vc = Versions()
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         queen = Artist(name='Queen')
         queen.save()
@@ -179,10 +176,10 @@ class VersionsModelTestCase(VersionsTestCase):
         dont_lose_your_head.save()
 
         # Finish the versioning transaction.
-        first_revision = vc.finish().values()[0]
+        first_revision = versions.finish().values()[0]
 
         # Start a managed versionsing transaction.
-        vc.start()
+        versions.start()
 
         princes_of_the_universe = Song(albumn=a_kind_of_magic, title='Princes of the Universe')
         princes_of_the_universe.save()
@@ -190,16 +187,16 @@ class VersionsModelTestCase(VersionsTestCase):
         dont_lose_your_head.delete()
 
         # Finish the versioning transaction.
-        second_revision = vc.finish().values()[0]
+        second_revision = versions.finish().values()[0]
 
         # Start a managed versionsing transaction.
-        vc.start()
+        versions.start()
 
         friends_will_be_friends = Song(albumn=a_kind_of_magic, title='Friends Will Be Friends')
         friends_will_be_friends.save()
 
         # Finish the versioning transaction.
-        third_revision = vc.finish().values()[0]
+        third_revision = versions.finish().values()[0]
 
         self.assertEqual(list(Albumn.objects.version(first_revision).get(pk=a_kind_of_magic.pk).songs.all()), [dont_lose_your_head])
         self.assertEqual(list(Albumn.objects.version(second_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe])
@@ -229,9 +226,8 @@ class VersionsModelTestCase(VersionsTestCase):
         fan3 = User(username='fan3', email='fan3@example.com')
         fan3.save()
 
-        vc = Versions()
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         queen = Artist(name='Queen')
         queen.save()
@@ -239,24 +235,22 @@ class VersionsModelTestCase(VersionsTestCase):
         queen.fans.add(fan1)
 
         # Finish the versioning transaction.
-        first_revision = vc.finish().values()[0]
+        first_revision = versions.finish().values()[0]
 
-        vc = Versions()
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         queen.fans = [fan2, fan3]
 
         # Finish the versioning transaction.
-        second_revision = vc.finish().values()[0]
+        second_revision = versions.finish().values()[0]
 
         self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
 
     def test_reverse_foreign_keys(self):
-        vc = Versions()
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         queen = Artist(name='Queen')
         queen.save()
@@ -268,10 +262,10 @@ class VersionsModelTestCase(VersionsTestCase):
         journey_albumn.save()
 
         # Finish the versioning transaction.
-        first_revision = vc.finish().values()[0]
+        first_revision = versions.finish().values()[0]
 
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         journey = Artist(name='Journey')
         journey.save()
@@ -280,16 +274,15 @@ class VersionsModelTestCase(VersionsTestCase):
         journey_albumn.save()
 
         # Finish the versioning transaction.
-        second_revision = vc.finish().values()[0]
+        second_revision = versions.finish().values()[0]
 
         self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic, journey_albumn])
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic])
 
 class PublishedModelTestCase(VersionsTestCase):
     def test_unpublished(self):
-        vc = Versions()
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         queen = Artist(name='Queen')
         queen.save()
@@ -305,10 +298,10 @@ class PublishedModelTestCase(VersionsTestCase):
         original_lyrics.save()
 
         # Finish the versioning transaction.
-        first_revision = vc.finish().values()[0]
+        first_revision = versions.finish().values()[0]
 
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         new_lyrics = """Dont lose your head
 Dont lose your head
@@ -321,7 +314,7 @@ No dont lose you head
         unpublished_lyrics.text = new_lyrics
         unpublished_lyrics.save()
 
-        second_revision = vc.finish().values()[0]
+        second_revision = versions.finish().values()[0]
 
         # Ensure the database version still points to the old lyrics.
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, "Dont lose your head")
@@ -330,7 +323,7 @@ No dont lose you head
         self.assertEquals(Lyrics.objects.version(second_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         new_lyrics = """Dont lose your head
 Dont lose your head
@@ -348,7 +341,7 @@ Remember loves stronger remember love walks tall
         published_lyrics.text = new_lyrics
         published_lyrics.save()
 
-        third_revision = vc.finish().values()[0]
+        third_revision = versions.finish().values()[0]
 
         # Ensure the database version still points to the old lyrics.
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, new_lyrics)
@@ -356,9 +349,8 @@ Remember loves stronger remember love walks tall
         self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 
     def test_unpublished_new(self):
-        vc = Versions()
         # Start a managed versioning transaction.
-        vc.start()
+        versions.start()
 
         queen = Artist(name='Queen')
         queen.save()
@@ -374,7 +366,7 @@ Remember loves stronger remember love walks tall
         original_lyrics.save()
 
         # Finish the versioning transaction.
-        first_revision = vc.finish().values()[0]
+        first_revision = versions.finish().values()[0]
 
         self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)
 
@@ -383,8 +375,7 @@ class VersionsOptionsTestCase(VersionsTestCase):
         queen = Artist(name='Queen')
         queen.save()
 
-        vc = Versions()
-        data = vc.data(queen)
+        data = versions.data(queen)
         self.assertEqual(data['field'].keys(), ['name', 'versions_deleted'])
 
     def test_field_include(self):
@@ -394,6 +385,5 @@ class VersionsOptionsTestCase(VersionsTestCase):
         a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        vc = Versions()
-        data = vc.data(a_kind_of_magic)
+        data = versions.data(a_kind_of_magic)
         self.assertEqual(data['field'].keys(), ['versions_deleted', 'title'])

@@ -2,7 +2,7 @@ from django.db import models
 
 from versions.exceptions import VersionsException
 from versions.managers import VersionsManager, PublishedManager
-from versions.repo import Versions
+from versions.repo import versions
 
 class VersionsOptions(object):
     @classmethod
@@ -41,8 +41,7 @@ class VersionsModel(models.Model):
         if self.pk is None or not only_version:
             super(VersionsModel, self).save(*args, **kwargs)
 
-        vc = Versions()
-        return vc.stage(self)
+        return versions.stage(self)
 
     def delete(self, *args, **kwargs):
         self.versions_deleted = True

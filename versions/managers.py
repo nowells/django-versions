@@ -1,7 +1,7 @@
 from django.db import connection
 from django.db import models
 
-from versions.repo import Versions
+from versions.repo import versions
 from versions.query import VersionsQuerySet, VersionsQuery
 
 class VersionsManager(models.Manager):
@@ -11,12 +11,10 @@ class VersionsManager(models.Manager):
         return self.get_query_set(revision)
 
     def revisions(self, instance):
-        vc = Versions()
-        return [ x.hex() for x in vc.revisions(instance) ]
+        return [ x.hex() for x in versions.revisions(instance) ]
 
     def diff(self, instance, rev0, rev1=None):
-        vc = Versions()
-        return vc.diff(instance, rev0, rev1)
+        return versions.diff(instance, rev0, rev1)
 
     def get_query_set(self, revision=None):
         if self.related_model_instance is not None:
