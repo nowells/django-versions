@@ -248,6 +248,35 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
 
+    def test_many_to_many_versioned_update(self):
+        fan1 = User(username='fan1', email='fan1@example.com')
+        fan1.save()
+
+        fan2 = User(username='fan2', email='fan2@example.com')
+        fan2.save()
+
+        Artist(name='Queen').save()
+
+        # Start a managed versioning transaction.
+        versions.start()
+
+        queen = Artist.objects.version('tip').get(name='Queen')
+        queen.fans.add(fan1)
+
+        # Finish the versioning transaction.
+        first_revision = versions.finish().values()[0]
+
+        # Start a managed versioning transaction.
+        versions.start()
+
+        queen.fans = [fan2]
+
+        # Finish the versioning transaction.
+        second_revision = versions.finish().values()[0]
+
+        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
+        self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2])
+
     def test_reverse_foreign_keys(self):
         # Start a managed versioning transaction.
         versions.start()
