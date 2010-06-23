@@ -148,7 +148,10 @@ class Versions(object):
 
         for name, data in name_map.items():
             if isinstance(data[0], (related.RelatedObject, related.ManyToManyField)):
-                related_data[name] = [ x['pk'] for x in getattr(instance, name).values('pk') ]
+                manager = getattr(instance, name)
+                if hasattr(manager, 'get_unfiltered_query_set'):
+                    manager = manager.get_unfiltered_query_set()
+                related_data[name] = [ x['pk'] for x in manager.values('pk') ]
 
         return {
             'field': field_data,

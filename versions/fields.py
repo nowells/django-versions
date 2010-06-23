@@ -43,8 +43,10 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
 
         manager = super(VersionsForeignRelatedObjectsDescriptor, self).__get__(instance, instance_type)
         class VersionsRelatedManager(manager.__class__):
-            def get_query_set(self, *args, **kwargs):
-                revision = None
+            def get_unfiltered_query_set(self):
+                return super(VersionsRelatedManager, self).get_query_set()
+
+            def get_query_set(self, revision=None):
                 if self.related_model_instance is not None and hasattr(self.related_model_instance, '_versions_revision'):
                     revision = self.related_model_instance._versions_revision
 
@@ -53,7 +55,7 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
                     pks = data['related'].get(self.related_model_field_name, [])
                     self.core_filters = {'pk__in': pks}
 
-                return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
+                return super(VersionsRelatedManager, self).get_query_set()
         new_manager = VersionsRelatedManager()
         new_manager.__dict__ = manager.__dict__
         return new_manager
@@ -77,21 +79,22 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
         rel_model=self.field.rel.to
         superclass = rel_model._default_manager.__class__
         RelatedManager = related.create_many_related_manager(superclass, self.field.rel.through)
+
         class VersionsRelatedManager(RelatedManager):
             def add(self, *args, **kwargs):
-                result = super(VersionsRelatedManager, self).add(*args, **kwargs)
+                super(VersionsRelatedManager, self).add(*args, **kwargs)
                 versions.stage(self.related_model_instance)
-                return result
 
             def remove(self, *args, **kwargs):
-                result = super(VersionsRelatedManager, self).remove(*args, **kwargs)
+                super(VersionsRelatedManager, self).remove(*args, **kwargs)
                 versions.stage(self.related_model_instance)
-                return result
 
             def clear(self, *args, **kwargs):
-                result = super(VersionsRelatedManager, self).clear(*args, **kwargs)
+                super(VersionsRelatedManager, self).clear(*args, **kwargs)
                 versions.stage(self.related_model_instance)
-                return result
+
+            def get_unfiltered_query_set(self):
+                return super(VersionsRelatedManager, self).get_query_set()
 
             def get_query_set(self, revision=None):
                 if self.related_model_instance is not None:
