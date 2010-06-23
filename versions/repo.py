@@ -21,25 +21,23 @@ from versions.exceptions import VersionDoesNotExist
 
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
-_versions.changes = None
-_versions.user = None
-_versions.commit_message = None
-_versions.managed = False
 
 class Versions(object):
     def reset(self):
-        _versions.changes = defaultdict(dict)
-        _versions.user = 'Anonymous'
-        _versions.commit_message = 'There was no commit message specified.'
-        _versions.managed = False
+        if hasattr(_versions, 'changes'):
+            delattr(_versions, 'changes')
+        if hasattr(_versions, 'user'):
+            delattr(_versions, 'user')
+        if hasattr(_versions, 'message'):
+            delattr(_versions, 'message')
 
     def is_managed(self):
-        return _versions.managed
+        return hasattr(_versions, 'changes')
 
     def start(self):
         if not self.is_managed():
             self.reset()
-            _versions.managed = True
+            _versions.changes = defaultdict(dict)
 
     def finish(self, exception=False):
         revisions = {}
@@ -60,11 +58,17 @@ class Versions(object):
             revision = self.commit(repo_path, {instance_path: data})
         return revision
 
-    def set_user(self, user):
+    def _set_user(self, user):
         _versions.user = user
+    def _get_user(self):
+        return getattr(_versions, 'user', 'Anonymous')
+    user = property(_get_user, _set_user)
 
-    def set_commit_message(self, text):
-        _versions.commit_message = text
+    def _set_message(self, text):
+        _versions.message = text
+    def _get_message(self):
+        return getattr(_versions, 'message', 'There was no commit message specified.')
+    message = property(_get_message, _set_message)
 
     def repository(self, repo_path):
         create = not os.path.isdir(repo_path)
@@ -102,10 +106,10 @@ class Versions(object):
                 ctx = context.memctx(
                     repo=repository,
                     parents=('tip', None),
-                    text=_versions.commit_message,
+                    text=self.message,
                     files=items.keys(),
                     filectxfn=file_callback,
-                    user=_versions.user,
+                    user=self.user,
                     )
                 revision = node.hex(repository.commitctx(ctx))
                 hg.update(repository, repository['tip'].node())
