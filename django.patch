@@ -20,7 +20,7 @@ Index: django/db/models/fields/related.py
              # If the related manager indicates that it should be used for
              # related fields, respect that.
              rel_mgr = self.field.rel.to._default_manager
-+            rel_mgr.model_field_name = self.field.rel.field_name
++            rel_mgr.model_field_name = self.field.name
 +            rel_mgr.related_model_instance = instance
 +            rel_mgr.related_model_field_name = self.field.rel.related_name
              if getattr(rel_mgr, 'use_for_related_fields', False):
