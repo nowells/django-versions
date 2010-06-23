@@ -7,7 +7,7 @@ class VersionsMiddleware(Versions):
             user_text = request.user.get_full_name() and request.user.get_full_name() or request.user.username
             if request.user.email:
                 user_text = '%s <%s>' % (user_text, request.user.email)
-            self.set_user(user_text)
+            self.user = user_text
 
     def process_exception(self, request, exception):
         self.finish(exception=True)
