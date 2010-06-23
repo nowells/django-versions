@@ -21,21 +21,32 @@ from versions.exceptions import VersionDoesNotExist
 
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
+_versions.changes = None
+_versions.user = None
+_versions.commit_message = None
+_versions.managed = False
 
 class Versions(object):
+    def reset(self):
+        _versions.changes = defaultdict(dict)
+        _versions.user = 'Anonymous'
+        _versions.commit_message = 'There was no commit message specified.'
+        _versions.managed = False
+
     def is_managed(self):
-        return getattr(_versions, 'changes', None) is not None
+        return _versions.managed
 
     def start(self):
         if not self.is_managed():
-            _versions.changes = defaultdict(dict)
+            self.reset()
+            _versions.managed = True
 
     def finish(self, exception=False):
         revisions = {}
         if self.is_managed():
             for repo_path, items in _versions.changes.items():
                 revisions[repo_path] = self.commit(repo_path, items)
-            _versions.changes = None
+            self.reset()
         return revisions
 
     def stage(self, instance):
@@ -48,6 +59,12 @@ class Versions(object):
         else:
             revision = self.commit(repo_path, {instance_path: data})
         return revision
+
+    def set_user(self, user):
+        _versions.user = user
+
+    def set_commit_message(self, text):
+        _versions.commit_message = text
 
     def repository(self, repo_path):
         create = not os.path.isdir(repo_path)
@@ -85,10 +102,10 @@ class Versions(object):
                 ctx = context.memctx(
                     repo=repository,
                     parents=('tip', None),
-                    text="django-versions commit",
+                    text=_versions.commit_message,
                     files=items.keys(),
                     filectxfn=file_callback,
-                    user="django-versions",
+                    user=_versions.user,
                     )
                 revision = node.hex(repository.commitctx(ctx))
                 hg.update(repository, repository['tip'].node())
