@@ -14,7 +14,7 @@ class Artist(VersionsModel):
     def __unicode__(self):
         return self.name
 
-class Albumn(VersionsModel):
+class Album(VersionsModel):
     artist = VersionsForeignKey(Artist, related_name='albumns')
     title = models.CharField(max_length=50)
     time_modified = models.DateTimeField(auto_now=True)
@@ -26,7 +26,7 @@ class Albumn(VersionsModel):
         return self.title
 
 class Song(VersionsModel):
-    albumn = VersionsForeignKey(Albumn, related_name='songs')
+    albumn = VersionsForeignKey(Album, related_name='songs')
     title = models.CharField(max_length=50)
     seconds = models.PositiveIntegerField(null=True, blank=True)
 

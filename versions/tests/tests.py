@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from versions.repo import versions
 from versions.exceptions import VersionDoesNotExist, VersionsException
-from versions.tests.models import Artist, Albumn, Song, Lyrics
+from versions.tests.models import Artist, Album, Song, Lyrics
 
 class VersionsTestCase(TestCase):
     def setUp(self):
@@ -76,7 +76,7 @@ class VersionsModelTestCase(VersionsTestCase):
         queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
         dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
@@ -110,9 +110,9 @@ class VersionsModelTestCase(VersionsTestCase):
         third_revision = versions.finish().values()[0]
 
         # the a_kind_of_magic albumn was not modified after the initial commit. Verify that we can retrieve the a_kind_of_magic model from the various revisions
-        first_a_kind_of_magic = Albumn.objects.version(first_revision).get(pk=a_kind_of_magic.pk)
-        second_a_kind_of_magic = Albumn.objects.version(second_revision).get(pk=a_kind_of_magic.pk)
-        third_a_kind_of_magic = Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk)
+        first_a_kind_of_magic = Album.objects.version(first_revision).get(pk=a_kind_of_magic.pk)
+        second_a_kind_of_magic = Album.objects.version(second_revision).get(pk=a_kind_of_magic.pk)
+        third_a_kind_of_magic = Album.objects.version(third_revision).get(pk=a_kind_of_magic.pk)
 
         # Verify that the data is the same.
         self.assertEqual(versions.data(first_a_kind_of_magic)['field'], versions.data(second_a_kind_of_magic)['field'])
@@ -169,7 +169,7 @@ class VersionsModelTestCase(VersionsTestCase):
         queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
         dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
@@ -198,9 +198,9 @@ class VersionsModelTestCase(VersionsTestCase):
         # Finish the versioning transaction.
         third_revision = versions.finish().values()[0]
 
-        self.assertEqual(list(Albumn.objects.version(first_revision).get(pk=a_kind_of_magic.pk).songs.all()), [dont_lose_your_head])
-        self.assertEqual(list(Albumn.objects.version(second_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe])
-        self.assertEqual(list(Albumn.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, friends_will_be_friends])
+        self.assertEqual(list(Album.objects.version(first_revision).get(pk=a_kind_of_magic.pk).songs.all()), [dont_lose_your_head])
+        self.assertEqual(list(Album.objects.version(second_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe])
+        self.assertEqual(list(Album.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, friends_will_be_friends])
 
     def test_disabled_functions(self):
         queen = Artist(name='Queen')
@@ -284,10 +284,10 @@ class VersionsModelTestCase(VersionsTestCase):
         queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        journey_albumn = Albumn(artist=queen, title='Journey')
+        journey_albumn = Album(artist=queen, title='Journey')
         journey_albumn.save()
 
         # Finish the versioning transaction.
@@ -316,7 +316,7 @@ class PublishedModelTestCase(VersionsTestCase):
         queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
         dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
@@ -384,7 +384,7 @@ Remember loves stronger remember love walks tall
         queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
         dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
@@ -410,7 +410,7 @@ class VersionsOptionsTestCase(VersionsTestCase):
         queen = Artist(name='Queen')
         queen.save()
 
-        a_kind_of_magic = Albumn(artist=queen, title='A Kind of Magic')
+        a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
         data = versions.data(a_kind_of_magic)
