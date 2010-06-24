@@ -79,7 +79,7 @@ class VersionsModelTestCase(VersionsTestCase):
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
+        dont_lose_your_head = Song(album=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
         # Finish the versioning transaction.
@@ -88,7 +88,7 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versionsing transaction.
         versions.start()
 
-        princes_of_the_universe = Song(albumn=a_kind_of_magic, title='Princes of the Universe')
+        princes_of_the_universe = Song(album=a_kind_of_magic, title='Princes of the Universe')
         princes_of_the_universe.save()
 
         dont_lose_your_head.seconds = 278
@@ -103,13 +103,13 @@ class VersionsModelTestCase(VersionsTestCase):
         princes_of_the_universe.seconds = 212
         princes_of_the_universe.save()
 
-        friends_will_be_friends = Song(albumn=a_kind_of_magic, title='Friends Will Be Friends')
+        friends_will_be_friends = Song(album=a_kind_of_magic, title='Friends Will Be Friends')
         friends_will_be_friends.save()
 
         # Finish the versioning transaction.
         third_revision = versions.finish().values()[0]
 
-        # the a_kind_of_magic albumn was not modified after the initial commit. Verify that we can retrieve the a_kind_of_magic model from the various revisions
+        # the a_kind_of_magic album was not modified after the initial commit. Verify that we can retrieve the a_kind_of_magic model from the various revisions
         first_a_kind_of_magic = Album.objects.version(first_revision).get(pk=a_kind_of_magic.pk)
         second_a_kind_of_magic = Album.objects.version(second_revision).get(pk=a_kind_of_magic.pk)
         third_a_kind_of_magic = Album.objects.version(third_revision).get(pk=a_kind_of_magic.pk)
@@ -172,7 +172,7 @@ class VersionsModelTestCase(VersionsTestCase):
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
+        dont_lose_your_head = Song(album=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
         # Finish the versioning transaction.
@@ -181,7 +181,7 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versionsing transaction.
         versions.start()
 
-        princes_of_the_universe = Song(albumn=a_kind_of_magic, title='Princes of the Universe')
+        princes_of_the_universe = Song(album=a_kind_of_magic, title='Princes of the Universe')
         princes_of_the_universe.save()
 
         dont_lose_your_head.delete()
@@ -192,7 +192,7 @@ class VersionsModelTestCase(VersionsTestCase):
         # Start a managed versionsing transaction.
         versions.start()
 
-        friends_will_be_friends = Song(albumn=a_kind_of_magic, title='Friends Will Be Friends')
+        friends_will_be_friends = Song(album=a_kind_of_magic, title='Friends Will Be Friends')
         friends_will_be_friends.save()
 
         # Finish the versioning transaction.
@@ -287,8 +287,8 @@ class VersionsModelTestCase(VersionsTestCase):
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        journey_albumn = Album(artist=queen, title='Journey')
-        journey_albumn.save()
+        journey_album = Album(artist=queen, title='Journey')
+        journey_album.save()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
@@ -299,14 +299,14 @@ class VersionsModelTestCase(VersionsTestCase):
         journey = Artist(name='Journey')
         journey.save()
 
-        journey_albumn.artist = journey
-        journey_albumn.save()
+        journey_album.artist = journey
+        journey_album.save()
 
         # Finish the versioning transaction.
         second_revision = versions.finish().values()[0]
 
-        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic, journey_albumn])
-        self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).albumns.all()), [a_kind_of_magic])
+        self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).albums.all()), [a_kind_of_magic, journey_album])
+        self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).albums.all()), [a_kind_of_magic])
 
 class PublishedModelTestCase(VersionsTestCase):
     def test_unpublished(self):
@@ -319,7 +319,7 @@ class PublishedModelTestCase(VersionsTestCase):
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
+        dont_lose_your_head = Song(album=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
@@ -387,7 +387,7 @@ Remember loves stronger remember love walks tall
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
-        dont_lose_your_head = Song(albumn=a_kind_of_magic, title="Don't Lose Your Head")
+        dont_lose_your_head = Song(album=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")

@@ -15,7 +15,7 @@ class Artist(VersionsModel):
         return self.name
 
 class Album(VersionsModel):
-    artist = VersionsForeignKey(Artist, related_name='albumns')
+    artist = VersionsForeignKey(Artist, related_name='albums')
     title = models.CharField(max_length=50)
     time_modified = models.DateTimeField(auto_now=True)
 
@@ -26,7 +26,7 @@ class Album(VersionsModel):
         return self.title
 
 class Song(VersionsModel):
-    albumn = VersionsForeignKey(Album, related_name='songs')
+    album = VersionsForeignKey(Album, related_name='songs')
     title = models.CharField(max_length=50)
     seconds = models.PositiveIntegerField(null=True, blank=True)
 
