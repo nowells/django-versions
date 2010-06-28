@@ -34,6 +34,7 @@ class VersionsModel(models.Model):
 
     # Used to store the revision of the model.
     _versions_revision = None
+    _versions_unpublished_changes = {}
 
     def save(self, *args, **kwargs):
         publish = self.versions_status != VERSIONS_STATUS_UNPUBLISHED
