@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from versions.repo import versions
 from versions.exceptions import VersionDoesNotExist, VersionsException
-from versions.tests.models import Artist, Album, Song, Lyrics
+from versions.tests.models import Artist, Album, Song, Lyrics, Venue
 
 class VersionsTestCase(TestCase):
     def setUp(self):
@@ -397,6 +397,33 @@ Remember loves stronger remember love walks tall
         first_revision = versions.finish().values()[0]
 
         self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)
+
+    def test_unpublished_many_to_many(self):
+        queen = Artist(name='Queen')
+        queen.save()
+
+        # Start a managed versioning transaction.
+        versions.start()
+
+        venue = Venue(name='Home')
+        venue.versions_published = True
+        venue.save()
+
+        # Finish the versioning transaction.
+        first_revision = versions.finish().values()[0]
+
+        # Start a managed versioning transaction.
+        versions.start()
+
+        venue.versions_published = False
+        venue.save()
+
+        venue.artists.add(queen)
+
+        # Finish the versioning transaction.
+        second_revision = versions.finish().values()[0]
+
+        self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [])
 
 class VersionsOptionsTestCase(VersionsTestCase):
     def test_field_exclude(self):

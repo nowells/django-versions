@@ -39,3 +39,7 @@ class Lyrics(PublishedModel):
 
     def __unicode__(self):
         return self.text
+
+class Venue(PublishedModel):
+    name = models.CharField(max_length=50)
+    artists = VersionsManyToManyField(Artist, blank=True, related_name='venues')
