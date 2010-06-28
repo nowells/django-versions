@@ -1,7 +1,8 @@
 from django.db import models
 
+from versions.constants import VERSIONS_STATUS_CHOICES, VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED, VERSIONS_STATUS_UNPUBLISHED
 from versions.exceptions import VersionsException
-from versions.managers import VersionsManager, PublishedManager
+from versions.managers import VersionsManager
 from versions.repo import versions
 
 class VersionsOptions(object):
@@ -10,17 +11,17 @@ class VersionsOptions(object):
         include = getattr(klass, 'include', [])
         exclude = getattr(klass, 'exclude', [])
 
-        invalid_excludes = set(['versions_deleted', 'versions_published']).intersection(exclude)
+        invalid_excludes = set(['versions_status']).intersection(exclude)
         if invalid_excludes:
             raise VersionsException('You cannot include `%s` in a VersionOptions exclude.' % ', '.join(invalid_excludes))
 
         cls._versions_options = VersionsOptions()
         cls._versions_options.include = include
         cls._versions_options.exclude = exclude
-        cls._versions_options.core_include = ['versions_deleted', 'versions_published']
+        cls._versions_options.core_include = ['versions_status']
 
 class VersionsModel(models.Model):
-    versions_deleted = models.BooleanField(default=False)
+    versions_status = models.PositiveIntegerField(choices=VERSIONS_STATUS_CHOICES, default=VERSIONS_STATUS_PUBLISHED)
 
     objects = VersionsManager()
 
@@ -35,27 +36,14 @@ class VersionsModel(models.Model):
     _versions_revision = None
 
     def save(self, *args, **kwargs):
-        only_version = kwargs.pop('only_version', False)
+        publish = self.versions_status != VERSIONS_STATUS_UNPUBLISHED
 
-        # We save the model only if it is a new instance, or if we have not been told to bypass saving.
-        if self.pk is None or not only_version:
+        # We save the model only if it is a new instance, or if we are not publishing the object.
+        if self.pk is None or publish:
             super(VersionsModel, self).save(*args, **kwargs)
 
         return versions.stage(self)
 
     def delete(self, *args, **kwargs):
-        self.versions_deleted = True
+        self.versions_status = VERSIONS_STATUS_DELETED
         self.save()
-
-class PublishedModel(VersionsModel):
-    versions_published = models.BooleanField(default=False)
-
-    objects = PublishedManager()
-
-    class Meta:
-        abstract = True
-
-    def save(self, *args, **kwargs):
-        kwargs['only_version'] = not self.versions_published
-        return super(PublishedModel, self).save(*args, **kwargs)
-

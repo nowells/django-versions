@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
 
+from versions.constants import VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_UNPUBLISHED
 from versions.repo import versions
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.tests.models import Artist, Album, Song, Lyrics, Venue
@@ -323,7 +324,6 @@ class PublishedModelTestCase(VersionsTestCase):
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
-        original_lyrics.versions_published = True
         original_lyrics.save()
 
         # Finish the versioning transaction.
@@ -339,7 +339,7 @@ No dont lose you head
 """
 
         unpublished_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
-        unpublished_lyrics.versions_published = False
+        unpublished_lyrics.versions_status = VERSIONS_STATUS_UNPUBLISHED
         unpublished_lyrics.text = new_lyrics
         unpublished_lyrics.save()
 
@@ -366,7 +366,7 @@ Remember loves stronger remember love walks tall
 """
 
         published_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
-        published_lyrics.versions_published = True
+        published_lyrics.versions_status = VERSIONS_STATUS_PUBLISHED
         published_lyrics.text = new_lyrics
         published_lyrics.save()
 
@@ -391,6 +391,7 @@ Remember loves stronger remember love walks tall
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
+        original_lyrics.versions_status = VERSIONS_STATUS_UNPUBLISHED
         original_lyrics.save()
 
         # Finish the versioning transaction.
@@ -406,7 +407,7 @@ Remember loves stronger remember love walks tall
         versions.start()
 
         venue = Venue(name='Home')
-        venue.versions_published = True
+        venue.versions_status = VERSIONS_STATUS_PUBLISHED
         venue.save()
 
         # Finish the versioning transaction.
@@ -415,7 +416,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.versions_published = False
+        venue.versions_status = VERSIONS_STATUS_UNPUBLISHED
         venue.save()
 
         venue.artists.add(queen)
@@ -424,6 +425,7 @@ Remember loves stronger remember love walks tall
         second_revision = versions.finish().values()[0]
 
         self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [])
+        self.assertEquals(list(Venue.objects.version(second_revision).get(pk=1).artists.all()), [queen])
 
 class VersionsOptionsTestCase(VersionsTestCase):
     def test_field_exclude(self):
@@ -431,7 +433,7 @@ class VersionsOptionsTestCase(VersionsTestCase):
         queen.save()
 
         data = versions.data(queen)
-        self.assertEqual(data['field'].keys(), ['name', 'versions_deleted'])
+        self.assertEqual(data['field'].keys(), ['name', 'versions_status'])
 
     def test_field_include(self):
         queen = Artist(name='Queen')
@@ -441,4 +443,4 @@ class VersionsOptionsTestCase(VersionsTestCase):
         a_kind_of_magic.save()
 
         data = versions.data(a_kind_of_magic)
-        self.assertEqual(data['field'].keys(), ['versions_deleted', 'title'])
+        self.assertEqual(data['field'].keys(), ['versions_status', 'title'])

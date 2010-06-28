@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import models
 from versions.fields import VersionsManyToManyField, VersionsForeignKey
-from versions.models import VersionsModel, PublishedModel, VersionsOptions
+from versions.models import VersionsModel, VersionsOptions
 
 class Artist(VersionsModel):
     name = models.CharField(max_length=50)
@@ -33,13 +33,13 @@ class Song(VersionsModel):
     def __unicode__(self):
         return self.title
 
-class Lyrics(PublishedModel):
+class Lyrics(VersionsModel):
     song = VersionsForeignKey(Song, related_name='lyrics')
     text = models.TextField(blank=True)
 
     def __unicode__(self):
         return self.text
 
-class Venue(PublishedModel):
+class Venue(VersionsModel):
     name = models.CharField(max_length=50)
     artists = VersionsManyToManyField(Artist, blank=True, related_name='venues')
