@@ -84,7 +84,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
 
         class VersionsRelatedManager(RelatedManager):
             def __get_unpublished_changes(self):
-                return self.related_model_instance._versions_unpublished_changes.get(self.related_model_field_name, [ x.pk for x in self.get_query_set() ])
+                return self.related_model_instance._versions_unpublished_changes.get(self.related_model_field_name, versions.data(self.related_model_instance)['related'][self.related_model_field_name])
 
             def add(self, *args, **kwargs):
                 if self.related_model_instance.versions_status == VERSIONS_STATUS_UNPUBLISHED:
