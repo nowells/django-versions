@@ -427,6 +427,17 @@ Remember loves stronger remember love walks tall
         self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [])
         self.assertEquals(list(Venue.objects.version(second_revision).get(pk=1).artists.all()), [queen])
 
+        # Start a managed versioning transaction.
+        versions.start()
+
+        venue.versions_status = VERSIONS_STATUS_PUBLISHED
+        venue.save()
+
+        # Finish the versioning transaction.
+        third_revision = versions.finish().values()[0]
+
+        self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [queen])
+
 class VersionsOptionsTestCase(VersionsTestCase):
     def test_field_exclude(self):
         queen = Artist(name='Queen')

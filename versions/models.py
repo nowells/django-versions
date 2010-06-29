@@ -38,6 +38,7 @@ class VersionsModel(models.Model):
 
     def save(self, *args, **kwargs):
         publish = self.versions_status != VERSIONS_STATUS_UNPUBLISHED
+        self.versions_status = kwargs.get('versions_status', self.versions_status)
 
         # We save the model only if it is a new instance, or if we are not publishing the object.
         if self.pk is None or publish:
@@ -47,4 +48,11 @@ class VersionsModel(models.Model):
 
     def delete(self, *args, **kwargs):
         self.versions_status = VERSIONS_STATUS_DELETED
-        self.save()
+        return self.save()
+
+    def publish(self):
+        self.versions_status = VERSIONS_STATUS_PUBLISHED
+        return self.save()
+
+    def unpublish(self):
+        return self.save(versions_status=VERSIONS_STATUS_UNPUBLISHED)
