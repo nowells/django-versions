@@ -1,11 +1,10 @@
-from django.contrib.auth.models import User
 from django.db import models
 from versions.fields import VersionsManyToManyField, VersionsForeignKey
 from versions.models import VersionsModel, VersionsOptions
 
 class Artist(VersionsModel):
     name = models.CharField(max_length=50)
-    fans = VersionsManyToManyField(User, blank=True, related_name='favorite_artists')
+    fans = VersionsManyToManyField('auth.User', blank=True, related_name='favorite_artists')
     time_modified = models.DateTimeField(auto_now=True)
 
     class Versions(VersionsOptions):
