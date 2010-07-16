@@ -64,7 +64,7 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
 
                 if revision is not None:
                     data = versions.version(self.related_model_instance, rev=revision)
-                    pks = data['related'].get(self.related_model_field_name, [])
+                    pks = data['related'].get(self.related_model_attname, [])
                     self.core_filters = {'pk__in': pks}
 
                 return super(VersionsRelatedManager, self).get_query_set()
@@ -95,12 +95,12 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
 
         class VersionsRelatedManager(RelatedManager):
             def __get_unpublished_changes(self):
-                return self.related_model_instance._versions_unpublished_changes.get(self.related_model_field_name, versions.data(self.related_model_instance)['related'][self.related_model_field_name])
+                return self.related_model_instance._versions_unpublished_changes.get(self.related_model_attname, versions.data(self.related_model_instance)['related'][self.related_model_attname])
 
             def add(self, *args, **kwargs):
                 if self.related_model_instance.versions_status == VERSIONS_STATUS_UNPUBLISHED:
                     changes = self.__get_unpublished_changes() + [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
-                    self.related_model_instance._versions_unpublished_changes[self.related_model_field_name] = changes
+                    self.related_model_instance._versions_unpublished_changes[self.related_model_attname] = changes
                 else:
                     super(VersionsRelatedManager, self).add(*args, **kwargs)
                 versions.stage(self.related_model_instance)
@@ -109,21 +109,21 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 if self.related_model_instance.versions_status == VERSIONS_STATUS_UNPUBLISHED:
                     changes = self.__get_unpublished_changes()
                     removed = [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
-                    self.related_model_instance._versions_unpublished_changes[self.related_model_field_name] = [ x for x in changes if x not in removed ]
+                    self.related_model_instance._versions_unpublished_changes[self.related_model_attname] = [ x for x in changes if x not in removed ]
                 else:
                     super(VersionsRelatedManager, self).remove(*args, **kwargs)
                 versions.stage(self.related_model_instance)
 
             def clear(self, *args, **kwargs):
                 if self.related_model_instance.versions_status == VERSIONS_STATUS_UNPUBLISHED:
-                    self.related_model_instance._versions_unpublished_changes[self.related_model_field_name] = []
+                    self.related_model_instance._versions_unpublished_changes[self.related_model_attname] = []
                 else:
                     super(VersionsRelatedManager, self).clear(*args, **kwargs)
                 versions.stage(self.related_model_instance)
 
             def get_unfiltered_query_set(self):
-                if self.related_model_instance._versions_unpublished_changes.has_key(self.related_model_field_name):
-                    self.core_filters = {'pk__in': self.related_model_instance._versions_unpublished_changes[self.related_model_field_name]}
+                if self.related_model_instance._versions_unpublished_changes.has_key(self.related_model_attname):
+                    self.core_filters = {'pk__in': self.related_model_instance._versions_unpublished_changes[self.related_model_attname]}
                 return super(VersionsRelatedManager, self).get_query_set()
 
             def get_query_set(self, revision=None):
@@ -132,7 +132,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
 
                 if revision is not None:
                     data = versions.version(self.related_model_instance, rev=revision)
-                    self.core_filters = {'pk__in': data['related'].get(self.related_model_field_name)}
+                    self.core_filters = {'pk__in': data['related'].get(self.related_model_attname)}
 
                 results = super(VersionsRelatedManager, self).get_query_set()
                 return results
@@ -147,7 +147,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
             source_col_name=qn(self.field.m2m_column_name()),
             target_col_name=qn(self.field.m2m_reverse_name())
         )
-        manager.model_field_name = self.field.m2m_reverse_name()
+        manager.model_attname = self.field.m2m_reverse_name()
         manager.related_model_instance = instance
-        manager.related_model_field_name = self.field.attname
+        manager.related_model_attname = self.field.attname
         return manager
