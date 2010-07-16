@@ -37,8 +37,8 @@ class VersionsModel(models.Model):
     _versions_unpublished_changes = {}
 
     def save(self, *args, **kwargs):
-        publish = self.versions_status != VERSIONS_STATUS_UNPUBLISHED
-        self.versions_status = kwargs.get('versions_status', self.versions_status)
+        publish = self.versions_status == VERSIONS_STATUS_PUBLISHED
+        self.versions_status = kwargs.pop('versions_status', self.versions_status)
 
         # We save the model only if it is a new instance, or if we are not publishing the object.
         if self.pk is None or publish:
@@ -47,8 +47,7 @@ class VersionsModel(models.Model):
         return versions.stage(self)
 
     def delete(self, *args, **kwargs):
-        self.versions_status = VERSIONS_STATUS_DELETED
-        return self.save()
+        return self.save(versions_status=VERSIONS_STATUS_DELETED)
 
     def publish(self):
         self.versions_status = VERSIONS_STATUS_PUBLISHED
