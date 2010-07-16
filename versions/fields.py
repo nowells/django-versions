@@ -1,6 +1,8 @@
 from django.db import connection
 from django.db.models.fields import related
 from django.db.models import signals
+
+from versions.constants import VERSIONS_STATUS_UNPUBLISHED, VERSIONS_STATUS_PUBLISHED
 from versions.repo import versions
 
 def stage_related_models(sender, instance, created, **kwargs):
@@ -12,6 +14,16 @@ def stage_related_models(sender, instance, created, **kwargs):
     for field, models in instance._versions_related_updates.items():
         for model in models:
             versions.stage(model)
+
+def publish_related_models(sender, instance, created, **kwargs):
+    """
+    This signal handler is used to alert objects to changes in the ForeignKey of related objects.
+    We capture both the creation of a new ForeignKey relationship, as well as the removal or changing
+    of an existing ForeignKey relationship.
+    """
+    if instance.versions_status == VERSIONS_STATUS_PUBLISHED and instance._versions_unpublished_changes:
+        for field, models in instance._versions_unpublished_changes.items():
+            setattr(instance, field, models)
 
 class VersionsForeignKey(related.ForeignKey):
     """
@@ -68,6 +80,7 @@ class VersionsManyToManyField(related.ManyToManyField):
     def contribute_to_class(self, cls, name):
         super(VersionsManyToManyField, self).contribute_to_class(cls, name)
         setattr(cls, self.name, VersionsReverseManyRelatedObjectsDescriptor(self))
+        signals.post_save.connect(publish_related_models, sender=self.related.model, dispatch_uid='versions_manytomany_related_object_update')
 
 class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObjectsDescriptor):
     def __get__(self, instance, instance_type=None):
@@ -81,19 +94,36 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
         RelatedManager = related.create_many_related_manager(superclass, self.field.rel.through)
 
         class VersionsRelatedManager(RelatedManager):
+            def __get_unpublished_changes(self):
+                return self.related_model_instance._versions_unpublished_changes.get(self.related_model_field_name, versions.data(self.related_model_instance)['related'][self.related_model_field_name])
+
             def add(self, *args, **kwargs):
-                super(VersionsRelatedManager, self).add(*args, **kwargs)
+                if self.related_model_instance.versions_status == VERSIONS_STATUS_UNPUBLISHED:
+                    changes = self.__get_unpublished_changes() + [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
+                    self.related_model_instance._versions_unpublished_changes[self.related_model_field_name] = changes
+                else:
+                    super(VersionsRelatedManager, self).add(*args, **kwargs)
                 versions.stage(self.related_model_instance)
 
             def remove(self, *args, **kwargs):
-                super(VersionsRelatedManager, self).remove(*args, **kwargs)
+                if self.related_model_instance.versions_status == VERSIONS_STATUS_UNPUBLISHED:
+                    changes = self.__get_unpublished_changes()
+                    removed = [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
+                    self.related_model_instance._versions_unpublished_changes[self.related_model_field_name] = [ x for x in changes if x not in removed ]
+                else:
+                    super(VersionsRelatedManager, self).remove(*args, **kwargs)
                 versions.stage(self.related_model_instance)
 
             def clear(self, *args, **kwargs):
-                super(VersionsRelatedManager, self).clear(*args, **kwargs)
+                if self.related_model_instance.versions_status == VERSIONS_STATUS_UNPUBLISHED:
+                    self.related_model_instance._versions_unpublished_changes[self.related_model_field_name] = []
+                else:
+                    super(VersionsRelatedManager, self).clear(*args, **kwargs)
                 versions.stage(self.related_model_instance)
 
             def get_unfiltered_query_set(self):
+                if self.related_model_instance._versions_unpublished_changes.has_key(self.related_model_field_name):
+                    self.core_filters = {'pk__in': self.related_model_instance._versions_unpublished_changes[self.related_model_field_name]}
                 return super(VersionsRelatedManager, self).get_query_set()
 
             def get_query_set(self, revision=None):
