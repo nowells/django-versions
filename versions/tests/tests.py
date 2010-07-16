@@ -339,9 +339,8 @@ No dont lose you head
 """
 
         unpublished_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
-        unpublished_lyrics.versions_status = VERSIONS_STATUS_UNPUBLISHED
         unpublished_lyrics.text = new_lyrics
-        unpublished_lyrics.save()
+        unpublished_lyrics.unpublish()
 
         second_revision = versions.finish().values()[0]
 
@@ -366,9 +365,8 @@ Remember loves stronger remember love walks tall
 """
 
         published_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
-        published_lyrics.versions_status = VERSIONS_STATUS_PUBLISHED
         published_lyrics.text = new_lyrics
-        published_lyrics.save()
+        published_lyrics.publish()
 
         third_revision = versions.finish().values()[0]
 
@@ -391,8 +389,7 @@ Remember loves stronger remember love walks tall
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
-        original_lyrics.versions_status = VERSIONS_STATUS_UNPUBLISHED
-        original_lyrics.save()
+        original_lyrics.unpublish()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
@@ -407,8 +404,7 @@ Remember loves stronger remember love walks tall
         versions.start()
 
         venue = Venue(name='Home')
-        venue.versions_status = VERSIONS_STATUS_PUBLISHED
-        venue.save()
+        venue.publish()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
@@ -416,8 +412,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.versions_status = VERSIONS_STATUS_UNPUBLISHED
-        venue.save()
+        venue.unpublish()
 
         venue.artists.add(queen)
 
@@ -430,8 +425,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.versions_status = VERSIONS_STATUS_PUBLISHED
-        venue.save()
+        venue.publish()
 
         # Finish the versioning transaction.
         third_revision = versions.finish().values()[0]
@@ -441,8 +435,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.versions_status = VERSIONS_STATUS_UNPUBLISHED
-        venue.save()
+        venue.unpublish()
 
         venue.artists.clear()
 
@@ -455,8 +448,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.versions_status = VERSIONS_STATUS_PUBLISHED
-        venue.save()
+        venue.publish()
 
         # Finish the versioning transaction.
         fifth_revision = versions.finish().values()[0]

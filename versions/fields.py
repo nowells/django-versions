@@ -15,23 +15,12 @@ def stage_related_models(sender, instance, created, **kwargs):
         for model in models:
             versions.stage(model)
 
-def publish_related_models(sender, instance, created, **kwargs):
-    """
-    This signal handler is used to alert objects to changes in the ForeignKey of related objects.
-    We capture both the creation of a new ForeignKey relationship, as well as the removal or changing
-    of an existing ForeignKey relationship.
-    """
-    if instance.versions_status == VERSIONS_STATUS_PUBLISHED and instance._versions_unpublished_changes:
-        for field, models in instance._versions_unpublished_changes.items():
-            setattr(instance, field, models)
-
 class VersionsForeignKey(related.ForeignKey):
     """
     A field used to allow VersionsModel objects to track non-versioned ForeignKey objects associated with
     a model at a given revision.
     """
     def contribute_to_class(self, cls, name):
-        cls._versions_related_updates = {}
         super(VersionsForeignKey, self).contribute_to_class(cls, name)
         setattr(cls, self.name, VersionsReverseSingleRelatedObjectDescriptor(self))
 
@@ -80,7 +69,6 @@ class VersionsManyToManyField(related.ManyToManyField):
     def contribute_to_class(self, cls, name):
         super(VersionsManyToManyField, self).contribute_to_class(cls, name)
         setattr(cls, self.name, VersionsReverseManyRelatedObjectsDescriptor(self))
-        signals.post_save.connect(publish_related_models, sender=self.related.model, dispatch_uid='versions_manytomany_related_object_update')
 
 class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObjectsDescriptor):
     def __get__(self, instance, instance_type=None):
@@ -147,7 +135,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
             source_col_name=qn(self.field.m2m_column_name()),
             target_col_name=qn(self.field.m2m_reverse_name())
         )
-        manager.model_attname = self.field.m2m_reverse_name()
+        manager.model_attname = self.field.related.get_accessor_name()
         manager.related_model_instance = instance
         manager.related_model_attname = self.field.attname
         return manager

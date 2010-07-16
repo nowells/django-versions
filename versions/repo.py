@@ -161,7 +161,9 @@ class Versions(object):
     def _version(self, cls, pk, rev='tip'):
         repo_path = self.get_repository_path(cls, pk)
         instance_path = self.get_instance_path(cls, pk)
-        #print 'Fetching revision %s for %s from %s' % (rev, instance_path, repo_path)
+        if not rev:
+            raise VersionDoesNotExist('Revision `%s` does not exist for %s in %s' % (rev, instance_path, repo_path))
+
         repository = self.repository(repo_path)
         fctx = repository.filectx(instance_path, rev)
         try:

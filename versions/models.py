@@ -2,6 +2,7 @@ from django.db import models
 
 from versions.constants import VERSIONS_STATUS_CHOICES, VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED, VERSIONS_STATUS_UNPUBLISHED
 from versions.exceptions import VersionsException
+from versions.fields import VersionsManyToManyField
 from versions.managers import VersionsManager
 from versions.repo import versions
 
@@ -34,24 +35,50 @@ class VersionsModel(models.Model):
 
     # Used to store the revision of the model.
     _versions_revision = None
-    _versions_unpublished_changes = {}
+    _versions_unpublished_changes = None
+    _versions_related_updates = None
+
+    def __init__(self, *args, **kwargs):
+        self._versions_revision = None
+        self._versions_related_updates = {}
+        self._versions_unpublished_changes = {}
+        super(VersionsModel, self).__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        publish = self.versions_status == VERSIONS_STATUS_PUBLISHED
-        self.versions_status = kwargs.pop('versions_status', self.versions_status)
+        should_save = kwargs.pop('save', self.versions_status == VERSIONS_STATUS_PUBLISHED)
+        should_stage = kwargs.pop('stage', True)
 
-        # We save the model only if it is a new instance, or if we are not publishing the object.
-        if self.pk is None or publish:
+        # We save the model only if it is a new instance, or if we have been told to save (i.e. one of the helper functions.)
+        if self.pk is None or should_save:
             super(VersionsModel, self).save(*args, **kwargs)
 
-        return versions.stage(self)
+        if should_stage:
+            return versions.stage(self)
 
     def delete(self, *args, **kwargs):
-        return self.save(versions_status=VERSIONS_STATUS_DELETED)
+        self.versions_status = VERSIONS_STATUS_DELETED
+        return self.save(save=True)
 
     def publish(self):
         self.versions_status = VERSIONS_STATUS_PUBLISHED
-        return self.save()
+        self.save(stage=False)
+
+        if self._versions_revision is None:
+            data = versions.data(self)
+        else:
+            data = versions.version(self, rev=self._versions_revision)
+
+        for name, ids in data['related'].items():
+            try:
+                field = self._meta.get_field_by_name(name)[0]
+            except:
+                pass
+            else:
+                if isinstance(field, VersionsManyToManyField):
+                    setattr(self, name, self._versions_unpublished_changes.get(name, ids))
+
+        return versions.stage(self)
 
     def unpublish(self):
-        return self.save(versions_status=VERSIONS_STATUS_UNPUBLISHED)
+        self.versions_status = VERSIONS_STATUS_UNPUBLISHED
+        return self.save()
