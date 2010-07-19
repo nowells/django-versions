@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.db.models.fields import related
 from django.db.models import signals
@@ -31,7 +32,11 @@ class VersionsForeignKey(related.ForeignKey):
 
 class VersionsReverseSingleRelatedObjectDescriptor(related.ReverseSingleRelatedObjectDescriptor):
     def __set__(self, instance, value):
-        old_value = getattr(instance, self.field.name, None)
+        try:
+            old_value = getattr(instance, self.field.name, None)
+        except ObjectDoesNotExist:
+            old_value = None
+
         result = super(VersionsReverseSingleRelatedObjectDescriptor, self).__set__(instance, value)
         if old_value != value:
             instance._versions_related_updates[self.field.name] = [ x for x in [old_value, value] if x is not None ]
