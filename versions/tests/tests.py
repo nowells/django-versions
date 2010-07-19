@@ -337,10 +337,10 @@ class PublishedModelTestCase(VersionsTestCase):
         # Start a managed versioning transaction.
         versions.start()
 
-        queen.stage_edits()
-        a_kind_of_magic.stage_edits()
-        princes_of_the_universe.stage_edits()
-        dont_lose_your_head.stage_edits()
+        queen.stage()
+        a_kind_of_magic.stage()
+        princes_of_the_universe.stage()
+        dont_lose_your_head.stage()
 
         new_lyrics = """Dont lose your head
 Dont lose your head
@@ -350,7 +350,7 @@ No dont lose you head
 
         staged_edits_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
         staged_edits_lyrics.text = new_lyrics
-        staged_edits_lyrics.stage_edits()
+        staged_edits_lyrics.stage()
 
         princes_of_the_universe.delete()
 
@@ -366,9 +366,9 @@ No dont lose you head
         # Start a managed versioning transaction.
         versions.start()
 
-        queen.publish()
-        a_kind_of_magic.publish()
-        Album.objects.version('tip').get(pk=a_kind_of_magic.pk).songs.publish()
+        queen.commit()
+        a_kind_of_magic.commit()
+        Album.objects.version('tip').get(pk=a_kind_of_magic.pk).songs.commit()
 
         new_lyrics = """Dont lose your head
 Dont lose your head
@@ -383,7 +383,7 @@ Remember loves stronger remember love walks tall
 
         published_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
         published_lyrics.text = new_lyrics
-        published_lyrics.publish()
+        published_lyrics.commit()
 
         third_revision = versions.finish().values()[0]
 
@@ -408,7 +408,7 @@ Remember loves stronger remember love walks tall
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
-        original_lyrics.stage_edits()
+        original_lyrics.stage()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
@@ -423,7 +423,7 @@ Remember loves stronger remember love walks tall
         versions.start()
 
         venue = Venue(name='Home')
-        venue.publish()
+        venue.commit()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
@@ -431,7 +431,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.stage_edits()
+        venue.stage()
 
         venue.artists.add(queen)
 
@@ -444,7 +444,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.publish()
+        venue.commit()
 
         # Finish the versioning transaction.
         third_revision = versions.finish().values()[0]
@@ -454,7 +454,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.stage_edits()
+        venue.stage()
 
         venue.artists.clear()
 
@@ -467,7 +467,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.publish()
+        venue.commit()
 
         # Finish the versioning transaction.
         fifth_revision = versions.finish().values()[0]

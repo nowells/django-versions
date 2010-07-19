@@ -33,14 +33,10 @@ class VersionsManager(models.Manager):
 
         return qs
 
-    def publish(self):
+    def commit(self):
         for result in self.__versions_get_query_set(include_staged_delete=True):
-            result.publish()
+            result.commit()
 
-    def stage_edits(self):
+    def stage(self):
         for result in self.__versions_get_query_set():
-            result.stage_edits()
-
-    def delete(self):
-        for result in self.__versions_get_query_set():
-            result.delete()
+            result.stage()

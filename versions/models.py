@@ -56,7 +56,7 @@ class VersionsModel(models.Model):
             self.versions_status = VERSIONS_STATUS_DELETED
         return self.save()
 
-    def publish(self):
+    def commit(self):
         if self.versions_status == VERSIONS_STATUS_STAGED_DELETE:
             self.versions_status = VERSIONS_STATUS_DELETED
         else:
@@ -81,10 +81,6 @@ class VersionsModel(models.Model):
 
         return versions.stage(self)
 
-    def stage_edits(self):
+    def stage(self):
         self.versions_status = VERSIONS_STATUS_STAGED_EDITS
-        return self.save()
-
-    def stage_delete(self):
-        self.versions_statue = VERSIONS_STATUS_STAGED_DELETE
         return self.save()

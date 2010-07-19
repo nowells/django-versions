@@ -135,3 +135,7 @@ class VersionsQuerySet(query.QuerySet):
         if self._revision is not None:
             raise VersionsException('You cannot call `%s` on a queryset that is finding versioned objects.' % 'annotate')
         return super(VersionsQuerySet, self).annotate(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        for result in self.iterator():
+            result.delete()
