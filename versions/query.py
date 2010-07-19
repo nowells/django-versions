@@ -2,6 +2,7 @@ from django.db import connection
 from django.db.models import query
 from django.db.models import sql
 
+from versions.constants import VERSIONS_STATUS_DELETED
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.repo import versions
 
@@ -78,7 +79,7 @@ class VersionsQuery(sql.Query):
                         related_data = rev_data.get('related', {})
 
                         # Exclude objects that were deleted in the past.
-                        if field_data.get('versions_deleted', False):
+                        if field_data.get('versions_status', None) in (VERSIONS_STATUS_DELETED,):
                             exists = False
                             break
                         else:
