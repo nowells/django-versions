@@ -140,3 +140,13 @@ class VersionsQuerySet(query.QuerySet):
     def delete(self, *args, **kwargs):
         for result in self.iterator():
             result.delete()
+
+    def values(self, *args, **kwargs):
+        # TODO: This is a HACK to to allow us to capture when a model object is going to be saved, however, that object would be excluded
+        # due to the fact that is it not currently PUBLISHED in the database. The ModelBase.save_base function does a check for existance
+        # of an object to determine whether to update or insert, so we need to remove the automatic filter applied by the VersionsManager
+        # to allow the save_base function to see an object, even if the database has that object as being some _versions_status other than
+        # PUBLISHED.
+        if args == ('a',) and self.query.where.children[0][0][1] == '_versions_status':
+            del self.query.where.children[0]
+        return super(VersionsQuerySet, self).values(*args, **kwargs)
