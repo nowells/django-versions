@@ -9,7 +9,7 @@ class VersionsManager(models.Manager):
     use_for_related_fields = True
 
     def version(self, revision):
-        return self.__versions_get_query_set(revision)
+        return self.get_query_set(revision)
 
     def revisions(self, instance):
         return [ x.hex() for x in versions.revisions(instance) ]
@@ -17,10 +17,7 @@ class VersionsManager(models.Manager):
     def diff(self, instance, rev0, rev1=None):
         return versions.diff(instance, rev0, rev1)
 
-    def get_query_set(self):
-        return self.__versions_get_query_set()
-
-    def __versions_get_query_set(self, revision=None, include_staged_delete=False):
+    def get_query_set(self, revision=None, include_staged_delete=False):
         if self.related_model_instance is not None:
             revision = revision and revision or self.related_model_instance._versions_revision
 
@@ -34,9 +31,9 @@ class VersionsManager(models.Manager):
         return qs
 
     def commit(self):
-        for result in self.__versions_get_query_set(include_staged_delete=True):
+        for result in self.get_query_set(include_staged_delete=True):
             result.commit()
 
     def stage(self):
-        for result in self.__versions_get_query_set():
+        for result in self.get_query_set():
             result.stage()

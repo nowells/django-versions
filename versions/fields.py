@@ -52,7 +52,8 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
             def get_unfiltered_query_set(self):
                 return super(VersionsRelatedManager, self).get_query_set()
 
-            def get_query_set(self, revision=None):
+            def get_query_set(self, *args, **kwargs):
+                revision = kwargs.get('revision', None)
                 if self.related_model_instance is not None and hasattr(self.related_model_instance, '_versions_revision'):
                     revision = self.related_model_instance._versions_revision
 
@@ -61,7 +62,7 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
                     pks = data['related'].get(self.related_model_attname, [])
                     self.core_filters = {'pk__in': pks}
 
-                return super(VersionsRelatedManager, self).get_query_set()
+                return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
         new_manager = VersionsRelatedManager()
         new_manager.__dict__ = manager.__dict__
         return new_manager
@@ -119,7 +120,8 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     self.core_filters = {'pk__in': self.related_model_instance._versions_staged_changes[self.related_model_attname]}
                 return super(VersionsRelatedManager, self).get_query_set()
 
-            def get_query_set(self, revision=None):
+            def get_query_set(self, *args, **kwargs):
+                revision = kwargs.get('revision', None)
                 if self.related_model_instance is not None:
                     revision = revision and revision or self.related_model_instance._versions_revision
 
@@ -127,8 +129,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     data = versions.version(self.related_model_instance, rev=revision)
                     self.core_filters = {'pk__in': data['related'].get(self.related_model_attname)}
 
-                results = super(VersionsRelatedManager, self).get_query_set()
-                return results
+                return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
 
         qn = connection.ops.quote_name
         manager = VersionsRelatedManager(

@@ -18,6 +18,7 @@ class VersionsQuery(sql.Query):
     def clone(self, *args, **kwargs):
         obj = super(VersionsQuery, self).clone(*args, **kwargs)
         obj._revision = self._revision
+        obj._include_staged_delete = self._include_staged_delete
         return obj
 
     def get_field_mapping(self):
