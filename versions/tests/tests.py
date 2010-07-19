@@ -322,6 +322,9 @@ class PublishedModelTestCase(VersionsTestCase):
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
 
+        princes_of_the_universe = Song(album=a_kind_of_magic, title='Princes of the Universe')
+        princes_of_the_universe.save()
+
         dont_lose_your_head = Song(album=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
@@ -334,6 +337,11 @@ class PublishedModelTestCase(VersionsTestCase):
         # Start a managed versioning transaction.
         versions.start()
 
+        queen.stage_edits()
+        a_kind_of_magic.stage_edits()
+        princes_of_the_universe.stage_edits()
+        dont_lose_your_head.stage_edits()
+
         new_lyrics = """Dont lose your head
 Dont lose your head
 Dont lose your head
@@ -344,16 +352,23 @@ No dont lose you head
         staged_edits_lyrics.text = new_lyrics
         staged_edits_lyrics.stage_edits()
 
+        princes_of_the_universe.delete()
+
         second_revision = versions.finish().values()[0]
 
         # Ensure the database version still points to the old lyrics.
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, "Dont lose your head")
+        self.assertEquals(list(Album.objects.get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, dont_lose_your_head])
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(first_revision).get(pk=original_lyrics.pk).text, "Dont lose your head")
         self.assertEquals(Lyrics.objects.version(second_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 
         # Start a managed versioning transaction.
         versions.start()
+
+        queen.publish()
+        a_kind_of_magic.publish()
+        Album.objects.version('tip').get(pk=a_kind_of_magic.pk).songs.publish()
 
         new_lyrics = """Dont lose your head
 Dont lose your head
@@ -372,8 +387,10 @@ Remember loves stronger remember love walks tall
 
         third_revision = versions.finish().values()[0]
 
-        # Ensure the database version still points to the old lyrics.
+        # Ensure the database version points to the new lyrics.
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, new_lyrics)
+        # Ensure the database version only has on song. Princess of the universe has been deleted.
+        self.assertEquals(list(Album.objects.get(pk=a_kind_of_magic.pk).songs.all()), [dont_lose_your_head])
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 

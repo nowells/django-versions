@@ -50,7 +50,7 @@ class VersionsModel(models.Model):
         return versions.stage(self)
 
     def delete(self, *args, **kwargs):
-        if self.versions_status == VERSIONS_STATUS_STAGED_EDITS:
+        if self.versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
             self.versions_status = VERSIONS_STATUS_STAGED_DELETE
         else:
             self.versions_status = VERSIONS_STATUS_DELETED
