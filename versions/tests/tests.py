@@ -5,7 +5,6 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
 
-from versions.constants import VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_UNPUBLISHED
 from versions.repo import versions
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.tests.models import Artist, Album, Song, Lyrics, Venue
@@ -310,7 +309,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).albums.all()), [a_kind_of_magic])
 
 class PublishedModelTestCase(VersionsTestCase):
-    def test_unpublished(self):
+    def test_staged_edits(self):
         # Start a managed versioning transaction.
         versions.start()
 
@@ -338,9 +337,9 @@ Dont lose your head
 No dont lose you head
 """
 
-        unpublished_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
-        unpublished_lyrics.text = new_lyrics
-        unpublished_lyrics.unpublish()
+        staged_edits_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
+        staged_edits_lyrics.text = new_lyrics
+        staged_edits_lyrics.stage_edits()
 
         second_revision = versions.finish().values()[0]
 
@@ -375,7 +374,7 @@ Remember loves stronger remember love walks tall
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 
-    def test_unpublished_new(self):
+    def test_staged_edits_new(self):
         # Start a managed versioning transaction.
         versions.start()
 
@@ -389,14 +388,14 @@ Remember loves stronger remember love walks tall
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
-        original_lyrics.unpublish()
+        original_lyrics.stage_edits()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
 
         self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)
 
-    def test_unpublished_many_to_many(self):
+    def test_staged_edits_many_to_many(self):
         queen = Artist(name='Queen')
         queen.save()
 
@@ -412,7 +411,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.unpublish()
+        venue.stage_edits()
 
         venue.artists.add(queen)
 
@@ -435,7 +434,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.unpublish()
+        venue.stage_edits()
 
         venue.artists.clear()
 
