@@ -202,6 +202,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(Song.objects.version(first_revision).get(pk=dont_lose_your_head.pk), dont_lose_your_head)
         self.assertRaises(Song.DoesNotExist, Song.objects.version(second_revision).get, pk=dont_lose_your_head.pk)
         self.assertRaises(Song.DoesNotExist, Song.objects.version(third_revision).get, pk=dont_lose_your_head.pk)
+        self.assertRaises(Song.DoesNotExist, Song.objects.get, pk=dont_lose_your_head.pk)
         self.assertEqual(list(Album.objects.version(first_revision).get(pk=a_kind_of_magic.pk).songs.all()), [dont_lose_your_head])
         self.assertEqual(list(Album.objects.version(second_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe])
         self.assertEqual(list(Album.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, friends_will_be_friends])
