@@ -1,6 +1,7 @@
 from django.db import connection
 from django.db.models import query
 from django.db.models import sql
+from django.utils import tree
 
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
@@ -147,6 +148,13 @@ class VersionsQuerySet(query.QuerySet):
         # of an object to determine whether to update or insert, so we need to remove the automatic filter applied by the VersionsManager
         # to allow the save_base function to see an object, even if the database has that object as being some _versions_status other than
         # PUBLISHED.
-        if args == ('a',) and self.query.where.children[0][0][1] == '_versions_status':
-            del self.query.where.children[0]
+        if args == ('a',):
+            def _remove_versions_status_filter(node):
+                for i, child in enumerate(node.children):
+                    if isinstance(child, tree.Node):
+                        _remove_versions_status_filter(child)
+                    else:
+                        if child[0][1] == '_versions_status':
+                            del node.children[i]
+            _remove_versions_status_filter(self.query.where)
         return super(VersionsQuerySet, self).values(*args, **kwargs)
