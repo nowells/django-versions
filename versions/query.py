@@ -2,7 +2,7 @@ from django.db import connection
 from django.db.models import query
 from django.db.models import sql
 
-from versions.constants import VERSIONS_STATUS_DELETED
+from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.repo import versions
 
@@ -12,6 +12,7 @@ _versions_table_mappings = {}
 class VersionsQuery(sql.Query):
     def __init__(self, *args, **kwargs):
         self._revision = kwargs.pop('revision', None)
+        self._include_staged_delete = kwargs.pop('include_staged_delete', False)
         super(VersionsQuery, self).__init__(*args, **kwargs)
 
     def clone(self, *args, **kwargs):
@@ -66,7 +67,6 @@ class VersionsQuery(sql.Query):
                 exists = True
                 for field in fields.values():
                     try:
-                        # TODO: exclude models that existed, but were deleted at this revision?
                         # TODO: how do we handle select_related queries?
                         #    1) if the primary object does not exist at this revision, it should be skipped.
                         #    2) what about objects included in select_reated? (if the filter was only filtering on the primary object,
@@ -79,7 +79,10 @@ class VersionsQuery(sql.Query):
                         related_data = rev_data.get('related', {})
 
                         # Exclude objects that were deleted in the past.
-                        if field_data.get('versions_status', None) in (VERSIONS_STATUS_DELETED,):
+                        if field_data.get('versions_status', None) == VERSIONS_STATUS_DELETED:
+                            exists = False
+                            break
+                        elif field_data.get('versions_status', None) == VERSIONS_STATUS_STAGED_DELETE and not self._include_staged_delete:
                             exists = False
                             break
                         else:
@@ -132,3 +135,7 @@ class VersionsQuerySet(query.QuerySet):
         if self._revision is not None:
             raise VersionsException('You cannot call `%s` on a queryset that is finding versioned objects.' % 'annotate')
         return super(VersionsQuerySet, self).annotate(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        for result in self.iterator():
+            result.delete()

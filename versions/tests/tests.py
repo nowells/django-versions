@@ -5,7 +5,6 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
 
-from versions.constants import VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_UNPUBLISHED
 from versions.repo import versions
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.tests.models import Artist, Album, Song, Lyrics, Venue
@@ -314,7 +313,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).albums.all()), [a_kind_of_magic])
 
 class PublishedModelTestCase(VersionsTestCase):
-    def test_unpublished(self):
+    def test_staged_edits(self):
         # Start a managed versioning transaction.
         versions.start()
 
@@ -323,6 +322,9 @@ class PublishedModelTestCase(VersionsTestCase):
 
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
+
+        princes_of_the_universe = Song(album=a_kind_of_magic, title='Princes of the Universe')
+        princes_of_the_universe.save()
 
         dont_lose_your_head = Song(album=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
@@ -336,26 +338,38 @@ class PublishedModelTestCase(VersionsTestCase):
         # Start a managed versioning transaction.
         versions.start()
 
+        queen.stage()
+        a_kind_of_magic.stage()
+        princes_of_the_universe.stage()
+        dont_lose_your_head.stage()
+
         new_lyrics = """Dont lose your head
 Dont lose your head
 Dont lose your head
 No dont lose you head
 """
 
-        unpublished_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
-        unpublished_lyrics.text = new_lyrics
-        unpublished_lyrics.unpublish()
+        staged_edits_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
+        staged_edits_lyrics.text = new_lyrics
+        staged_edits_lyrics.stage()
+
+        princes_of_the_universe.delete()
 
         second_revision = versions.finish().values()[0]
 
         # Ensure the database version still points to the old lyrics.
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, "Dont lose your head")
+        self.assertEquals(list(Album.objects.get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, dont_lose_your_head])
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(first_revision).get(pk=original_lyrics.pk).text, "Dont lose your head")
         self.assertEquals(Lyrics.objects.version(second_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 
         # Start a managed versioning transaction.
         versions.start()
+
+        queen.commit()
+        a_kind_of_magic.commit()
+        Album.objects.version('tip').get(pk=a_kind_of_magic.pk).songs.commit()
 
         new_lyrics = """Dont lose your head
 Dont lose your head
@@ -370,16 +384,18 @@ Remember loves stronger remember love walks tall
 
         published_lyrics = Lyrics.objects.version('tip').get(pk=original_lyrics.pk)
         published_lyrics.text = new_lyrics
-        published_lyrics.publish()
+        published_lyrics.commit()
 
         third_revision = versions.finish().values()[0]
 
-        # Ensure the database version still points to the old lyrics.
+        # Ensure the database version points to the new lyrics.
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk).text, new_lyrics)
+        # Ensure the database version only has on song. Princess of the universe has been deleted.
+        self.assertEquals(list(Album.objects.get(pk=a_kind_of_magic.pk).songs.all()), [dont_lose_your_head])
         # Ensure that the revisions contain the correct information.
         self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 
-    def test_unpublished_new(self):
+    def test_staged_edits_new(self):
         # Start a managed versioning transaction.
         versions.start()
 
@@ -393,14 +409,14 @@ Remember loves stronger remember love walks tall
         dont_lose_your_head.save()
 
         original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
-        original_lyrics.unpublish()
+        original_lyrics.stage()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
 
         self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)
 
-    def test_unpublished_many_to_many(self):
+    def test_staged_edits_many_to_many(self):
         queen = Artist(name='Queen')
         queen.save()
 
@@ -408,7 +424,7 @@ Remember loves stronger remember love walks tall
         versions.start()
 
         venue = Venue(name='Home')
-        venue.publish()
+        venue.commit()
 
         # Finish the versioning transaction.
         first_revision = versions.finish().values()[0]
@@ -416,7 +432,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.unpublish()
+        venue.stage()
 
         venue.artists.add(queen)
 
@@ -429,7 +445,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.publish()
+        venue.commit()
 
         # Finish the versioning transaction.
         third_revision = versions.finish().values()[0]
@@ -439,7 +455,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.unpublish()
+        venue.stage()
 
         venue.artists.clear()
 
@@ -452,7 +468,7 @@ Remember loves stronger remember love walks tall
         # Start a managed versioning transaction.
         versions.start()
 
-        venue.publish()
+        venue.commit()
 
         # Finish the versioning transaction.
         fifth_revision = versions.finish().values()[0]
