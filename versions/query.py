@@ -80,10 +80,10 @@ class VersionsQuery(sql.Query):
                         related_data = rev_data.get('related', {})
 
                         # Exclude objects that were deleted in the past.
-                        if field_data.get('versions_status', None) == VERSIONS_STATUS_DELETED:
+                        if field_data.get('_versions_status', None) == VERSIONS_STATUS_DELETED:
                             exists = False
                             break
-                        elif field_data.get('versions_status', None) == VERSIONS_STATUS_STAGED_DELETE and not self._include_staged_delete:
+                        elif field_data.get('_versions_status', None) == VERSIONS_STATUS_STAGED_DELETE and not self._include_staged_delete:
                             exists = False
                             break
                         else:

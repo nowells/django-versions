@@ -26,7 +26,7 @@ class VersionsManager(models.Manager):
 
         # If we are looking up the current state of the model instances, filter out deleted models. The Versions system will take care of filtering out the deleted revised objects.
         if revision is None:
-            qs = qs.filter(versions_status=VERSIONS_STATUS_PUBLISHED)
+            qs = qs.filter(_versions_status=VERSIONS_STATUS_PUBLISHED)
 
         return qs
 

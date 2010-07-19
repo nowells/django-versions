@@ -416,6 +416,14 @@ Remember loves stronger remember love walks tall
 
         self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)
 
+        # Start a managed versioning transaction.
+        versions.start()
+
+        original_lyrics.commit()
+
+        # Finish the versioning transaction.
+        second_revision = versions.finish().values()[0]
+
     def test_staged_edits_many_to_many(self):
         queen = Artist(name='Queen')
         queen.save()
@@ -482,7 +490,7 @@ class VersionsOptionsTestCase(VersionsTestCase):
         queen.save()
 
         data = versions.data(queen)
-        self.assertEqual(data['field'].keys(), ['name', 'versions_status'])
+        self.assertEqual(data['field'].keys(), ['_versions_status', 'name'])
 
     def test_field_include(self):
         queen = Artist(name='Queen')
@@ -492,4 +500,4 @@ class VersionsOptionsTestCase(VersionsTestCase):
         a_kind_of_magic.save()
 
         data = versions.data(a_kind_of_magic)
-        self.assertEqual(data['field'].keys(), ['versions_status', 'title'])
+        self.assertEqual(data['field'].keys(), ['_versions_status', 'title'])

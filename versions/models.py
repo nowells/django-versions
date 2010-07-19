@@ -12,17 +12,20 @@ class VersionsOptions(object):
         include = getattr(klass, 'include', [])
         exclude = getattr(klass, 'exclude', [])
 
-        invalid_excludes = set(['versions_status']).intersection(exclude)
+        invalid_excludes = set(['_versions_status']).intersection(exclude)
         if invalid_excludes:
             raise VersionsException('You cannot include `%s` in a VersionOptions exclude.' % ', '.join(invalid_excludes))
 
         cls._versions_options = VersionsOptions()
         cls._versions_options.include = include
         cls._versions_options.exclude = exclude
-        cls._versions_options.core_include = ['versions_status']
+        cls._versions_options.core_include = ['_versions_status']
 
 class VersionsModel(models.Model):
-    versions_status = models.PositiveIntegerField(choices=VERSIONS_STATUS_CHOICES, default=VERSIONS_STATUS_PUBLISHED)
+    _versions_status = models.PositiveIntegerField(choices=VERSIONS_STATUS_CHOICES, default=VERSIONS_STATUS_PUBLISHED)
+    def versions_status(self):
+        return self._versions_status
+    versions_status = property(versions_status)
 
     objects = VersionsManager()
 
@@ -45,22 +48,22 @@ class VersionsModel(models.Model):
         super(VersionsModel, self).__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        if (self.pk is None or self.versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
+        if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
             super(VersionsModel, self).save(*args, **kwargs)
         return versions.stage(self)
 
     def delete(self, *args, **kwargs):
-        if self.versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
-            self.versions_status = VERSIONS_STATUS_STAGED_DELETE
+        if self._versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
+            self._versions_status = VERSIONS_STATUS_STAGED_DELETE
         else:
-            self.versions_status = VERSIONS_STATUS_DELETED
+            self._versions_status = VERSIONS_STATUS_DELETED
         return self.save()
 
     def commit(self):
-        if self.versions_status == VERSIONS_STATUS_STAGED_DELETE:
-            self.versions_status = VERSIONS_STATUS_DELETED
+        if self._versions_status == VERSIONS_STATUS_STAGED_DELETE:
+            self._versions_status = VERSIONS_STATUS_DELETED
         else:
-            self.versions_status = VERSIONS_STATUS_PUBLISHED
+            self._versions_status = VERSIONS_STATUS_PUBLISHED
 
         # We don't want to call our save method, because we want to stage the state of this model until we set the state of all unpublihsed manytomany edits.
         super(VersionsModel, self).save()
@@ -82,5 +85,5 @@ class VersionsModel(models.Model):
         return versions.stage(self)
 
     def stage(self):
-        self.versions_status = VERSIONS_STATUS_STAGED_EDITS
+        self._versions_status = VERSIONS_STATUS_STAGED_EDITS
         return self.save()

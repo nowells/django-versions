@@ -92,7 +92,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 return self.related_model_instance._versions_staged_changes.get(self.related_model_attname, versions.data(self.related_model_instance)['related'][self.related_model_attname])
 
             def add(self, *args, **kwargs):
-                if self.related_model_instance.versions_status == VERSIONS_STATUS_STAGED_EDITS:
+                if self.related_model_instance._versions_status == VERSIONS_STATUS_STAGED_EDITS:
                     changes = self.__get_staged_changes() + [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
                     self.related_model_instance._versions_staged_changes[self.related_model_attname] = changes
                 else:
@@ -100,7 +100,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 versions.stage(self.related_model_instance)
 
             def remove(self, *args, **kwargs):
-                if self.related_model_instance.versions_status == VERSIONS_STATUS_STAGED_EDITS:
+                if self.related_model_instance._versions_status == VERSIONS_STATUS_STAGED_EDITS:
                     changes = self.__get_staged_changes()
                     removed = [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
                     self.related_model_instance._versions_staged_changes[self.related_model_attname] = [ x for x in changes if x not in removed ]
@@ -109,7 +109,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 versions.stage(self.related_model_instance)
 
             def clear(self, *args, **kwargs):
-                if self.related_model_instance.versions_status == VERSIONS_STATUS_STAGED_EDITS:
+                if self.related_model_instance._versions_status == VERSIONS_STATUS_STAGED_EDITS:
                     self.related_model_instance._versions_staged_changes[self.related_model_attname] = []
                 else:
                     super(VersionsRelatedManager, self).clear(*args, **kwargs)
