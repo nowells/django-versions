@@ -1,6 +1,6 @@
 Index: django/db/models/manager.py
 ===================================================================
---- django/db/models/manager.py	(revision 13362)
+--- django/db/models/manager.py	(revision 13444)
 +++ django/db/models/manager.py	(working copy)
 @@ -48,6 +48,9 @@
          super(Manager, self).__init__()
@@ -10,23 +10,31 @@ Index: django/db/models/manager.py
 +        self.related_model_instance = None
 +        self.related_model_attname = None
          self._inherited = False
-
+ 
      def contribute_to_class(self, model, name):
 Index: django/db/models/fields/related.py
 ===================================================================
---- django/db/models/fields/related.py	(revision 13362)
+--- django/db/models/fields/related.py	(revision 13444)
 +++ django/db/models/fields/related.py	(working copy)
-@@ -251,6 +251,9 @@
+@@ -1,3 +1,5 @@
++import copy
++
+ from django.db import connection, transaction
+ from django.db.backends import util
+ from django.db.models import signals, get_model
+@@ -250,7 +252,10 @@
+ 
              # If the related manager indicates that it should be used for
              # related fields, respect that.
-             rel_mgr = self.field.rel.to._default_manager
+-            rel_mgr = self.field.rel.to._default_manager
++            rel_mgr = copy.copy(self.field.rel.to._default_manager)
 +            rel_mgr.model_attname = self.field.rel.related_name
 +            rel_mgr.related_model_instance = instance
 +            rel_mgr.related_model_attname = self.field.name
              if getattr(rel_mgr, 'use_for_related_fields', False):
                  rel_obj = rel_mgr.get(**params)
              else:
-@@ -398,7 +401,9 @@
+@@ -398,7 +403,9 @@
          manager.core_filters = {'%s__%s' % (rel_field.name, attname):
                  getattr(instance, attname)}
          manager.model = self.related.model
@@ -35,9 +43,9 @@ Index: django/db/models/fields/related.py
 +        manager.related_model_instance = instance
 +        manager.related_model_attname = rel_field.rel.related_name
          return manager
-
+ 
  def create_many_related_manager(superclass, through=False):
-@@ -566,7 +571,9 @@
+@@ -566,7 +573,9 @@
              source_col_name=qn(self.related.field.m2m_reverse_name()),
              target_col_name=qn(self.related.field.m2m_column_name())
          )
@@ -46,9 +54,9 @@ Index: django/db/models/fields/related.py
 +        manager.related_model_instance = instance
 +        manager.related_model_attname = self.related.get_accessor_name()
          return manager
-
+ 
      def __set__(self, instance, value):
-@@ -611,7 +618,9 @@
+@@ -611,7 +620,9 @@
              source_col_name=qn(self.field.m2m_column_name()),
              target_col_name=qn(self.field.m2m_reverse_name())
          )
@@ -57,5 +65,5 @@ Index: django/db/models/fields/related.py
 +        manager.related_model_instance = instance
 +        manager.related_model_attname = self.field.attname
          return manager
-
+ 
      def __set__(self, instance, value):
