@@ -11,7 +11,7 @@ Overview
 ``django-versions`` allows you to version the data stored in django models seamlessly. To get started all you need to do is to set ``VERSIONS_REPOSITORY_ROOT`` variable in your settings to specify where you would like your versioned data to be stored, then just subclass your Model from ``VersionsModel`` and start saving data::
 
     from django.db import models
-    from versions import VersionsModel
+    from versions.models import VersionsModel
 
     class MyModel(VersionsModel):
         text = models.TextField()
