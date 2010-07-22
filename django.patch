@@ -34,6 +34,17 @@ Index: django/db/models/fields/related.py
              if getattr(rel_mgr, 'use_for_related_fields', False):
                  rel_obj = rel_mgr.get(**params)
              else:
+@@ -351,8 +356,8 @@
+         rel_model = self.related.model
+ 
+         class RelatedManager(superclass):
+-            def get_query_set(self):
+-                return superclass.get_query_set(self).filter(**(self.core_filters))
++            def get_query_set(self, *args, **kwargs):
++                return superclass.get_query_set(self, *args, **kwargs).filter(**(self.core_filters))
+ 
+             def add(self, *objs):
+                 for obj in objs:
 @@ -398,7 +403,9 @@
          manager.core_filters = {'%s__%s' % (rel_field.name, attname):
                  getattr(instance, attname)}
@@ -45,6 +56,17 @@ Index: django/db/models/fields/related.py
          return manager
  
  def create_many_related_manager(superclass, through=False):
+@@ -420,8 +427,8 @@
+             if self._pk_val is None:
+                 raise ValueError("%r instance needs to have a primary key value before a many-to-many relationship can be used." % instance.__class__.__name__)
+ 
+-        def get_query_set(self):
+-            return superclass.get_query_set(self)._next_is_sticky().filter(**(self.core_filters))
++        def get_query_set(self, *args, **kwargs):
++            return superclass.get_query_set(self, *args, **kwargs)._next_is_sticky().filter(**(self.core_filters))
+ 
+         # If the ManyToMany relation has an intermediary model,
+         # the add and remove methods do not exist.
 @@ -566,7 +573,9 @@
              source_col_name=qn(self.related.field.m2m_reverse_name()),
              target_col_name=qn(self.related.field.m2m_column_name())
