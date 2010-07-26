@@ -424,6 +424,8 @@ Remember loves stronger remember love walks tall
         # Finish the versioning transaction.
         second_revision = versions.finish().values()[0]
 
+        self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk), original_lyrics)
+
     def test_staged_edits_many_to_many(self):
         queen = Artist(name='Queen')
         queen.save()

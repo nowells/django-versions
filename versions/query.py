@@ -10,6 +10,14 @@ from versions.repo import versions
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
 
+def _remove_versions_status_filter(node):
+    for i, child in enumerate(node.children):
+        if isinstance(child, tree.Node):
+            _remove_versions_status_filter(child)
+        else:
+            if child[0][1] == '_versions_status':
+                del node.children[i]
+
 class VersionsQuery(sql.Query):
     def __init__(self, *args, **kwargs):
         self._revision = kwargs.pop('revision', None)
@@ -149,12 +157,11 @@ class VersionsQuerySet(query.QuerySet):
         # to allow the save_base function to see an object, even if the database has that object as being some _versions_status other than
         # PUBLISHED.
         if args == ('a',):
-            def _remove_versions_status_filter(node):
-                for i, child in enumerate(node.children):
-                    if isinstance(child, tree.Node):
-                        _remove_versions_status_filter(child)
-                    else:
-                        if child[0][1] == '_versions_status':
-                            del node.children[i]
             _remove_versions_status_filter(self.query.where)
         return super(VersionsQuerySet, self).values(*args, **kwargs)
+
+    def _update(self, *args, **kwargs):
+        # We need to filter out the versions_status filter for the update, so that when save_base function calls
+        # `manager.filter(pk=pk_val)._update(values)` the manager returns the proper data to be updated.
+        _remove_versions_status_filter(self.query.where)
+        return super(VersionsQuerySet, self)._update(*args, **kwargs)
