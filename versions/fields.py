@@ -13,8 +13,11 @@ def stage_related_models(sender, instance, created, **kwargs):
     of an existing ForeignKey relationship.
     """
     for field, models in instance._versions_related_updates.items():
-        for model in models:
-            versions.stage(model)
+        related_field = instance._meta.get_field(field).related.get_accessor_name()
+        old_related_model, new_related_model = models
+        if old_related_model is not None:
+            versions.stage(old_related_model, related_updates={'removed': {related_field: [instance]}})
+        versions.stage(new_related_model, related_updates={'added': {related_field: [instance]}})
 
 class VersionsForeignKey(related.ForeignKey):
     """
@@ -39,7 +42,7 @@ class VersionsReverseSingleRelatedObjectDescriptor(related.ReverseSingleRelatedO
 
         result = super(VersionsReverseSingleRelatedObjectDescriptor, self).__set__(instance, value)
         if old_value != value:
-            instance._versions_related_updates[self.field.name] = [ x for x in [old_value, value] if x is not None ]
+            instance._versions_related_updates[self.field.name] = [old_value, value]
         return result
 
 class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescriptor):
