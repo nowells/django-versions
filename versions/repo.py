@@ -7,6 +7,9 @@ except ImportError:
     import pickle
 import threading
 
+import datetime
+import time
+
 from mercurial.cmdutil import walkchangerevs
 from mercurial import context
 from mercurial import error
@@ -21,6 +24,23 @@ from versions.exceptions import VersionDoesNotExist
 
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
+
+class Version(object):
+    def __init__(self, commit):
+        t, tz = commit.date()
+        self.revision = commit.hex()
+        self.user = commit.user()
+        self.message = commit.description()
+        self.date = datetime.datetime.fromtimestamp(time.mktime(time.gmtime(t - tz)))
+
+    def __unicode__(self):
+        return self.revision
+
+    def __str__(self):
+        return self.revision
+
+    def __repr__(self):
+        return '<Version %s>' % self.revision
 
 class Versions(object):
     def reset(self):
@@ -180,13 +200,16 @@ class Versions(object):
     def version(self, instance, rev='tip'):
         return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
 
-    def revisions(self, instance):
-        repo_path = self.get_repository_path(instance.__class__, instance._get_pk_val())
-        instance_path = self.get_instance_path(instance.__class__, instance._get_pk_val())
+    def _revisions(self, cls, pk):
+        repo_path = self.get_repository_path(cls, pk)
+        instance_path = self.get_instance_path(cls, pk)
         repository = self.repository(repo_path)
         instance_match = match.exact(repository.root, repository.getcwd(), [instance_path])
         change_contexts = walkchangerevs(repository, instance_match, {'rev': None}, lambda ctx, fns: ctx)
-        return change_contexts
+        return [ Version(x) for x in change_contexts ]
+
+    def revisions(self, instance):
+        return self._revisions(instance.__class__, instance._get_pk_val())
 
     def diff(self, instance, rev0, rev1=None):
         inst0 = self.version(instance, rev0)
