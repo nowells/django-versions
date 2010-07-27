@@ -135,7 +135,8 @@ class Versions(object):
                     user=self.user,
                     )
                 revision = node.hex(repository.commitctx(ctx))
-                hg.update(repository, repository['tip'].node())
+                # TODO: if we want the working copy of the repository to be updated as well add logic to enable this.
+                # hg.update(repository, repository['tip'].node())
                 return revision
             finally:
                 lock.release()
