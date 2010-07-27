@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.urlresolvers import reverse
 from django.forms.formsets import all_valid
 from django.forms.models import model_to_dict
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, Http404
 from django.shortcuts import get_object_or_404, render_to_response
 from django.utils.dateformat import format
 from django.utils.html import mark_safe
@@ -20,11 +20,8 @@ from django.utils.encoding import force_unicode
 from versions.repo import versions
 
 class VersionsAdmin(admin.ModelAdmin):
-    revision_form_template = "django-versions/revision_form.html"
     object_history_template = "django-versions/object_history.html"
     change_list_template = "django-versions/change_list.html"
-    recover_list_template = "django-versions/recover_list.html"
-    recover_form_template = "django-versions/recover_form.html"
 
     def get_urls(self):
         """Returns the additional urls used by the Reversion admin."""
@@ -34,8 +31,6 @@ class VersionsAdmin(admin.ModelAdmin):
         info = opts.app_label, opts.module_name,
         versions_urls = patterns(
             "",
-            url("^recover/$", admin_site.admin_view(self.recoverlist_view), name='%s_%s_recoverlist' % info),
-            url("^recover/([^/]+)/$", admin_site.admin_view(self.recover_view), name='%s_%s_recover' % info),
             url("^([^/]+)/history/([^/]+)/$", admin_site.admin_view(self.revision_view), name='%s_%s_revision' % info),
             )
         return versions_urls + urls
@@ -62,6 +57,20 @@ class VersionsAdmin(admin.ModelAdmin):
         context = {"action_list": action_list}
         context.update(extra_context or {})
         return super(VersionsAdmin, self).history_view(request, object_id, context)
+
+    @transaction.commit_on_success
+    def revision_view(self, request, object_id, version_id, extra_context=None):
+        """Displays the contents of the given revision."""
+        try:
+            obj = self.model.objects.version(version_id).get(pk=object_id)
+        except self.model.DoesNotExist:
+            raise Http404
+        context = {"title": _("Revert %(name)s") % {"name": force_unicode(self.model._meta.verbose_name)},}
+        context.update(extra_context or {})
+        return self.render_revision_form(request, obj, version, context, revert=True)
+
+
+
 
 
 
@@ -238,16 +247,6 @@ class VersionsAdmin(admin.ModelAdmin):
         context = {"title": _("Recover %(name)s") % {"name": version.object_repr},}
         context.update(extra_context or {})
         return self.render_revision_form(request, obj, version, context, recover=True)
-
-    @transaction.commit_on_success
-    def revision_view(self, request, object_id, version_id, extra_context=None):
-        """Displays the contents of the given revision."""
-        obj = get_object_or_404(self.model, pk=object_id)
-        version = get_object_or_404(Version, pk=version_id, object_id=unicode(obj.pk))
-        # Generate the context.
-        context = {"title": _("Revert %(name)s") % {"name": force_unicode(self.model._meta.verbose_name)},}
-        context.update(extra_context or {})
-        return self.render_revision_form(request, obj, version, context, revert=True)
 
     @transaction.commit_on_success
     def add_view(self, *args, **kwargs):
