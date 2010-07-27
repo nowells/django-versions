@@ -1,14 +1,15 @@
 from collections import defaultdict
+import datetime
 import difflib
+import logging
 import os
+import threading
+import time
+
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
-import threading
-
-import datetime
-import time
 
 from mercurial.cmdutil import walkchangerevs
 from mercurial import context
@@ -24,6 +25,34 @@ from versions.exceptions import VersionDoesNotExist
 
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
+
+class LogUI(ui.ui):
+    def __init__(self, *args, **kwargs):
+        self.log = logging.getLogger('versions.repo')
+        super(LogUI, self).__init__(*args, **kwargs)
+
+    def write(self, *args, **opts):
+        if self._buffers:
+            self._buffers[-1].extend([str(a) for a in args])
+        else:
+            for a in args:
+                self.log.info(str(a))
+
+    def write_err(self, *args, **opts):
+        for a in args:
+            self.log.error(str(a))
+
+    def flush(self):
+        pass
+
+    def interactive(self):
+        return False
+
+    def formatted(self):
+        return False
+
+    def _readline(self, prompt=''):
+        raise Exception('Unable to readline on a non-interactive client.')
 
 class Version(object):
     def __init__(self, commit):
@@ -95,7 +124,7 @@ class Versions(object):
 
     def repository(self, repo_path):
         create = not os.path.isdir(repo_path)
-        hgui = ui.ui()
+        hgui = LogUI()
         hgui.setconfig('ui', 'interactive', 'off')
         if not os.path.exists(os.path.dirname(repo_path)):
             os.makedirs(os.path.dirname(repo_path))

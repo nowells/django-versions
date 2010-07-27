@@ -1,9 +1,13 @@
+import random
 import shutil
+import threading
+import time
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.test import TestCase
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+from django.test import TestCase
 
 from versions.repo import versions
 from versions.exceptions import VersionDoesNotExist, VersionsException
@@ -517,3 +521,32 @@ class VersionsOptionsTestCase(VersionsTestCase):
 
         data = versions.data(a_kind_of_magic)
         self.assertEqual(data['field'].keys(), ['_versions_status', 'title'])
+
+class VersionsThreadedTestCase(VersionsTestCase):
+    def test_concurrent_edits(self):
+        @transaction.commit_on_success
+        def concurrent_edit():
+            queen, is_new = Artist.objects.version('tip').get_or_create(pk=1, defaults={'name': 'Queen'})
+            if not is_new:
+                queen.name = 'Queen (%s)' % random.randint(0, 1000)
+                queen.save()
+
+        thread = threading.Thread(target=concurrent_edit)
+        thread.start()
+        thread.join()
+
+        NUM_THREADS = 100
+        threads = []
+        for x in xrange(1, NUM_THREADS):
+            thread = threading.Thread(target=concurrent_edit)
+            threads.append(thread)
+            thread.start()
+
+        alive = True
+        while alive:
+            alive = False
+            for thread in threads:
+                alive = alive or thread.isAlive()
+
+        queen = Artist.objects.get(pk=1)
+        self.assertEqual(len(list(Artist.objects.revisions(queen))), NUM_THREADS)
