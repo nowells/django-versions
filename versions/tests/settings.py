@@ -5,7 +5,6 @@ DIRNAME = os.path.dirname(os.path.abspath(__file__))
 DEBUG = True
 DATABASE_ENGINE='sqlite3'
 DATABASE_NAME = os.path.join(DIRNAME, 'versions.db')
-TEST_DATABASE_NAME = os.path.join(DIRNAME, 'test-versions.db')
 INSTALLED_APPS=(
     'django.contrib.contenttypes',
     'django.contrib.admin',

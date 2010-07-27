@@ -8,3 +8,4 @@ dist/
 docs/_build/
 versions/tests/versions.db
 lib/
+versions/tests/.repositories/
