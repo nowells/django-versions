@@ -1,6 +1,7 @@
 from django.db import connection
 from django.db.models import query
 from django.db.models import sql
+from django.db.models.signals import class_prepared
 from django.utils import tree
 
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
@@ -9,6 +10,15 @@ from versions.repo import versions
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
+
+def register_table_mapping(sender, **kwargs):
+    from versions.models import VersionsModel
+    if issubclass(sender, VersionsModel):
+        # Register this model with the version registry.
+        qn = connection.ops.quote_name
+        _versions_table_mappings[qn(sender._meta.db_table)] = sender
+
+class_prepared.connect(register_table_mapping)
 
 def _remove_versions_status_filter(node):
     for i, child in enumerate(node.children):
@@ -111,10 +121,6 @@ class VersionsQuerySet(query.QuerySet):
     def __init__(self, *args, **kwargs):
         self._revision = kwargs.pop('revision', None)
         super(VersionsQuerySet, self).__init__(*args, **kwargs)
-
-        # Register this model with the version registry.
-        qn = connection.ops.quote_name
-        _versions_table_mappings[qn(self.model._meta.db_table)] = self.model
 
     def _clone(self, *args, **kwargs):
         obj = super(VersionsQuerySet, self)._clone(*args, **kwargs)
