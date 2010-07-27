@@ -42,6 +42,9 @@ class Version(object):
     def __repr__(self):
         return '<Version %s>' % self.revision
 
+    def __eq__(self, other):
+        return type(other) == type(self) and other.revision == self.revision
+
 class Versions(object):
     def reset(self):
         if hasattr(_versions, 'changes'):
