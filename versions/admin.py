@@ -22,6 +22,7 @@ from versions.repo import versions
 class VersionsAdmin(admin.ModelAdmin):
     object_history_template = "django-versions/object_history.html"
     change_list_template = "django-versions/change_list.html"
+    revision_view_template = "django-versions/revision_view.html"
 
     def get_urls(self):
         """Returns the additional urls used by the Reversion admin."""
@@ -59,21 +60,69 @@ class VersionsAdmin(admin.ModelAdmin):
         return super(VersionsAdmin, self).history_view(request, object_id, context)
 
     @transaction.commit_on_success
+    def add_view(self, *args, **kwargs):
+        """Adds a new model to the application."""
+        return super(VersionsAdmin, self).add_view(*args, **kwargs)
+
+    @transaction.commit_on_success
+    def change_view(self, *args, **kwargs):
+        """Modifies an existing model."""
+        return super(VersionsAdmin, self).change_view(*args, **kwargs)
+
+    @transaction.commit_on_success
+    def changelist_view(self, request, extra_context=None):
+        """Renders the change view."""
+        opts = self.model._meta
+        context = {"add_url": reverse("admin:%s_%s_add" % (opts.app_label, opts.module_name)),}
+        context.update(extra_context or {})
+        return super(VersionsAdmin, self).changelist_view(request, context)
+
+    @transaction.commit_on_success
     def revision_view(self, request, object_id, version_id, extra_context=None):
         """Displays the contents of the given revision."""
         try:
-            obj = self.model.objects.version(version_id).get(pk=object_id)
+            obj = get_object_or_404(self.model, pk=object_id)
+            version = self.model.objects.version(version_id).get(pk=object_id)
         except self.model.DoesNotExist:
             raise Http404
-        context = {"title": _("Revert %(name)s") % {"name": force_unicode(self.model._meta.verbose_name)},}
+
+        differences = self.model.objects.diff(obj, 'tip', version_id, raw=False)
+
+        model = self.model
+        opts = model._meta
+        ModelForm = self.get_form(request, obj)
+
+        context = {
+            "title": _("Revert %(name)s") % {"name": force_unicode(self.model._meta.verbose_name)},
+            "obj": obj,
+            "differences": differences,
+            #"adminform": adminForm,
+            "object_id": object_id,
+            "original": obj,
+            "is_popup": False,
+            #"media": mark_safe(media),
+            #"inline_admin_formsets": inline_admin_formsets,
+            #"errors": helpers.AdminErrorList(form, formsets),
+            "app_label": opts.app_label,
+            "add": False,
+            "change": True,
+            "has_add_permission": False,
+            "has_change_permission": self.has_change_permission(request, obj),
+            "has_delete_permission": False,
+            "has_file_field": True,
+            "has_absolute_url": False,
+            "ordered_objects": opts.get_ordered_objects(),
+            "form_url": mark_safe(request.path),
+            "opts": opts,
+            "content_type_id": ContentType.objects.get_for_model(self.model).id,
+            "save_as": False,
+            "save_on_top": self.save_on_top,
+            "changelist_url": reverse("admin:%s_%s_changelist" % (opts.app_label, opts.module_name)),
+            "change_url": reverse("admin:%s_%s_change" % (opts.app_label, opts.module_name), args=(obj.pk,)),
+            "history_url": reverse("admin:%s_%s_history" % (opts.app_label, opts.module_name), args=(obj.pk,)),
+            }
         context.update(extra_context or {})
-        return self.render_revision_form(request, obj, version, context, revert=True)
-
-
-
-
-
-
+        return render_to_response(self.revision_view_template, context, template.RequestContext(request))
 
 
     def recoverlist_view(self, request, extra_context=None):
@@ -247,23 +296,4 @@ class VersionsAdmin(admin.ModelAdmin):
         context = {"title": _("Recover %(name)s") % {"name": version.object_repr},}
         context.update(extra_context or {})
         return self.render_revision_form(request, obj, version, context, recover=True)
-
-    @transaction.commit_on_success
-    def add_view(self, *args, **kwargs):
-        """Adds a new model to the application."""
-        return super(VersionsAdmin, self).add_view(*args, **kwargs)
-
-    @transaction.commit_on_success
-    def change_view(self, *args, **kwargs):
-        """Modifies an existing model."""
-        return super(VersionsAdmin, self).change_view(*args, **kwargs)
-
-    @transaction.commit_on_success
-    def changelist_view(self, request, extra_context=None):
-        """Renders the change view."""
-        opts = self.model._meta
-        context = {"recoverlist_url": reverse("admin:%s_%s_recoverlist" % (opts.app_label, opts.module_name)),
-                   "add_url": reverse("admin:%s_%s_add" % (opts.app_label, opts.module_name)),}
-        context.update(extra_context or {})
-        return super(VersionsAdmin, self).changelist_view(request, context)
 

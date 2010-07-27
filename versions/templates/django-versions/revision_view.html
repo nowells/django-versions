@@ -1,0 +1,12 @@
+{% extends "admin/change_form.html" %}
+
+{% block content %}
+{% for field,diff in differences.field.items %}
+    {{ diff|safe }}
+{% endfor %}
+
+{% for field,diff in differences.related.items %}
+    {{ diff|safe }}
+{% endfor %}
+
+{% endblock %}

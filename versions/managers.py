@@ -17,8 +17,8 @@ class VersionsManager(models.Manager):
         else:
             return [ x for x in versions._revisions(instance_or_cls, pk) ]
 
-    def diff(self, instance, rev0, rev1=None):
-        return versions.diff(instance, rev0, rev1)
+    def diff(self, instance, rev0, rev1=None, raw=True):
+        return versions.diff(instance, rev0, rev1, raw=raw)
 
     def get_query_set(self, revision=None, include_staged_delete=False):
         if self.related_model_instance is not None:

@@ -215,16 +215,47 @@ class Versions(object):
     def revisions(self, instance):
         return self._revisions(instance.__class__, instance._get_pk_val())
 
-    def diff(self, instance, rev0, rev1=None):
+    def diff(self, instance, rev0, rev1=None, raw=True):
         inst0 = self.version(instance, rev0)
         if rev1 is None:
             inst1 = self.data(instance)
         else:
             inst1 = self.version(instance, rev1)
-        keys = list(set(inst0.keys() + inst1.keys()))
-        difference = {}
-        for key in keys:
-            difference[key] = ''.join(difflib.unified_diff(repr(inst0.get(key, '')), repr(inst1.get(key, ''))))
-        return difference
+
+        differences = {
+            'field': {},
+            'related': {},
+            }
+
+        html_diff = None
+        if not raw:
+            html_diff = difflib.HtmlDiff(wrapcolumn=50)
+            html_diff._table_template = """
+<table class="diff" id="difflib_chg_%(prefix)s_top" cellspacing="0" cellpadding="0" rules="groups" width="800">
+    <colgroup width="10"></colgroup>
+    <colgroup width="20"></colgroup>
+    <colgroup width="370"></colgroup>
+    <colgroup width="10"></colgroup>
+    <colgroup width="20"></colgroup>
+    <colgroup width="370"></colgroup>
+    %(header_row)s
+    <tbody>
+        %(data_rows)s
+    </tbody>
+</table>
+"""
+        for area in ('field', 'related',):
+            keys = list(set(inst0[area].keys() + inst1[area].keys()))
+            for key in keys:
+                val0 = repr(inst0[area].get(key, ''))
+                val1 = repr(inst1[area].get(key, ''))
+
+                if raw:
+                    difference = ''.join(difflib.unified_diff(val0, val1))
+                else:
+                    difference = html_diff.make_table(val0.splitlines(), val1.splitlines(), fromdesc=rev0, todesc=rev1, context=False)
+
+                differences[area][key] = difference
+        return differences
 
 versions = Versions()
