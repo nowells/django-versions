@@ -11,8 +11,11 @@ class VersionsManager(models.Manager):
     def version(self, revision):
         return self.get_query_set(revision)
 
-    def revisions(self, instance):
-        return [ x.hex() for x in versions.revisions(instance) ]
+    def revisions(self, instance_or_cls, pk=None):
+        if pk is None:
+            return [ x for x in versions.revisions(instance_or_cls) ]
+        else:
+            return [ x for x in versions._revisions(instance_or_cls, pk) ]
 
     def diff(self, instance, rev0, rev1=None):
         return versions.diff(instance, rev0, rev1)
