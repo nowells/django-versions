@@ -43,12 +43,12 @@ class VersionsAdmin(admin.ModelAdmin):
     def log_addition(self, request, object):
         """Sets the version meta information."""
         super(VersionsAdmin, self).log_addition(request, object)
-        versions.user = request.user
+        versions.user = request.user.get_full_name()
 
     def log_change(self, request, object, message):
         """Sets the version meta information."""
         super(VersionsAdmin, self).log_change(request, object, message)
-        versions.user = request.user
+        versions.user = request.user.get_full_name()
         versions.message = message
 
     def history_view(self, request, object_id, extra_context=None):

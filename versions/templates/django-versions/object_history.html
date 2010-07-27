@@ -21,7 +21,7 @@
 				        {% for action in action_list %}
 					        <tr>
 					            <th scope="row"><a href="{{action.url}}">{{action.revision.date|date:_("DATETIME_FORMAT")}}</a></th>
-					            <td>{{action.revision.user.username}}{% if action.revision.user %} ({{action.revision.user}}){% endif %}</td>
+					            <td>{{action.revision.user}}</td>
 					            <td>{{action.revision.message|default:""}}</td>
 					        </tr>
 				        {% endfor %}

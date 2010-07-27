@@ -21,3 +21,8 @@ TEMPLATE_LOADERS = (
     'django.template.loaders.eggs.load_template_source',
     )
 ROOT_URLCONF = 'versions.tests.urls'
+
+from django.conf.global_settings import MIDDLEWARE_CLASSES
+MIDDLEWARE_CLASSES += (
+    'versions.middleware.VersionsMiddleware',
+    )
