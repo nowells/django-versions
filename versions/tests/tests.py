@@ -526,10 +526,13 @@ class VersionsThreadedTestCase(VersionsTestCase):
     def test_concurrent_edits(self):
         @transaction.commit_on_success
         def concurrent_edit():
-            queen, is_new = Artist.objects.version('tip').get_or_create(pk=1, defaults={'name': 'Queen'})
-            if not is_new:
-                queen.name = 'Queen (%s)' % random.randint(0, 1000)
-                queen.save()
+            try:
+                queen, is_new = Artist.objects.version('tip').get_or_create(pk=1, defaults={'name': 'Queen'})
+                if not is_new:
+                    queen.name = 'Queen (%s)' % random.randint(0, 1000)
+                    queen.save()
+            except:
+                pass
 
         thread = threading.Thread(target=concurrent_edit)
         thread.start()
