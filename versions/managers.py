@@ -1,3 +1,4 @@
+import django
 from django.db import connection
 from django.db import models
 
@@ -24,8 +25,12 @@ class VersionsManager(models.Manager):
         if self.related_model_instance is not None:
             revision = revision and revision or self.related_model_instance._versions_revision
 
-        query = VersionsQuery(self.model, connection, revision=revision, include_staged_delete=include_staged_delete)
-        qs = VersionsQuerySet(model=self.model, query=query, revision=revision)
+        if django.VERSION < (1, 2):
+            query = VersionsQuery(self.model, connection, revision=revision, include_staged_delete=include_staged_delete)
+            qs = VersionsQuerySet(model=self.model, query=query, revision=revision)
+        else:
+            query = VersionsQuery(self.model, revision=revision, include_staged_delete=include_staged_delete)
+            qs = VersionsQuerySet(model=self.model, using=self._db, query=query, revision=revision)
 
         # If we are looking up the current state of the model instances, filter out deleted models. The Versions system will take care of filtering out the deleted revised objects.
         if revision is None:

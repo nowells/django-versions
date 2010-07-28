@@ -1,3 +1,4 @@
+import django
 from django.db import connection
 from django.db.models import query
 from django.db.models import sql
@@ -25,7 +26,12 @@ def _remove_versions_status_filter(node):
         if isinstance(child, tree.Node):
             _remove_versions_status_filter(child)
         else:
-            if child[0][1] == '_versions_status':
+            if django.VERSION < (1, 2):
+                field_name = child[0][1]
+            else:
+                field_name = child[0].field.name
+
+            if field_name == '_versions_status':
                 del node.children[i]
 
 class VersionsQuery(sql.Query):

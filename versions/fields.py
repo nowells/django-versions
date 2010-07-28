@@ -1,3 +1,4 @@
+import django
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.db.models.fields import related
@@ -88,7 +89,10 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
         # model's default manager.
         rel_model=self.field.rel.to
         superclass = rel_model._default_manager.__class__
-        RelatedManager = related.create_many_related_manager(superclass, self.field.rel.through)
+        if django.VERSION < (1, 2):
+            RelatedManager = related.create_many_related_manager(superclass, self.field.rel.through)
+        else:
+            RelatedManager = related.create_many_related_manager(superclass, self.field.rel)
 
         class VersionsRelatedManager(RelatedManager):
             def __get_staged_changes(self):
@@ -135,15 +139,28 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
 
         qn = connection.ops.quote_name
-        manager = VersionsRelatedManager(
-            model=rel_model,
-            core_filters={'%s__pk' % self.field.related_query_name(): instance._get_pk_val()},
-            instance=instance,
-            symmetrical=self.field.rel.symmetrical,
-            join_table=qn(self.field.m2m_db_table()),
-            source_col_name=qn(self.field.m2m_column_name()),
-            target_col_name=qn(self.field.m2m_reverse_name())
-        )
+
+        if django.VERSION < (1, 2):
+            manager = VersionsRelatedManager(
+                model=rel_model,
+                core_filters={'%s__pk' % self.field.related_query_name(): instance._get_pk_val()},
+                instance=instance,
+                symmetrical=self.field.rel.symmetrical,
+                join_table=qn(self.field.m2m_db_table()),
+                source_col_name=qn(self.field.m2m_column_name()),
+                target_col_name=qn(self.field.m2m_reverse_name())
+                )
+        else:
+            manager = VersionsRelatedManager(
+                model=rel_model,
+                core_filters={'%s__pk' % self.field.related_query_name(): instance._get_pk_val()},
+                instance=instance,
+                symmetrical=self.field.rel.symmetrical,
+                join_table=qn(self.field.m2m_db_table()),
+                source_field_name=self.field.m2m_column_name(),
+                target_field_name=self.field.m2m_reverse_name(),
+                )
+
         manager.model_attname = self.field.related.get_accessor_name()
         manager.related_model_instance = instance
         manager.related_model_attname = self.field.attname
