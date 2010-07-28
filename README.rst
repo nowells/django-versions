@@ -1,10 +1,6 @@
 django-versions
 ###############
 
-ALPHA
-=====
-This project's development is still in **ALPHA**. There are many features not yet implemented that are in the queue.
-
 Overview
 ========
 
@@ -23,7 +19,7 @@ Dependencies
 ------------
 
 * Mercurial >= 1.5.2
-* Django == 1.1
+* Django == 1.1.X
 
 Installing django-versions
 --------------------------
@@ -34,10 +30,10 @@ If your are installing from source, you just need to run the following command f
 
 If you want to install the package without checking out the source you should run::
 
-    pip install http://github.com/nowells/django-versions/tarball/v0.1.0
+    pip install http://github.com/nowells/django-versions/tarball/v0.2.0
 
     # OR if you don't have pip installed (you should definitely check out pip)
-    easy_install http://github.com/nowells/django-versions/tarball/v0.1.0
+    easy_install http://github.com/nowells/django-versions/tarball/v0.2.0
 
 For the time being, we need to patch Django to allow us to gain access to the related model from Manager classes. There is a patch included at the root of the source tree ``django.patch`` that includes the required changes. To patch django, go to the root of your checkout of django 1.1.X and run::
 
