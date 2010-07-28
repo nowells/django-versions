@@ -28,7 +28,7 @@ _versions = threading.local()
 
 class LogUI(ui.ui):
     def __init__(self, *args, **kwargs):
-        self.log = logging.getLogger('versions.repo')
+        self.log = logging.getLogger('versions')
         super(LogUI, self).__init__(*args, **kwargs)
 
     def write(self, *args, **opts):
