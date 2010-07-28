@@ -157,8 +157,8 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 instance=instance,
                 symmetrical=self.field.rel.symmetrical,
                 join_table=qn(self.field.m2m_db_table()),
-                source_field_name=self.field.m2m_column_name(),
-                target_field_name=self.field.m2m_reverse_name(),
+                source_field_name=self.field.m2m_field_name(),
+                target_field_name=self.field.m2m_reverse_field_name(),
                 )
 
         manager.model_attname = self.field.related.get_accessor_name()
