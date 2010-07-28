@@ -535,7 +535,7 @@ class VersionsThreadedTestCase(VersionsTestCase):
         thread.start()
         thread.join()
 
-        NUM_THREADS = 100
+        NUM_THREADS = 10
         threads = []
         for x in xrange(1, NUM_THREADS):
             thread = threading.Thread(target=concurrent_edit)
@@ -549,4 +549,17 @@ class VersionsThreadedTestCase(VersionsTestCase):
                 alive = alive or thread.isAlive()
 
         queen = Artist.objects.get(pk=1)
-        self.assertEqual(len(list(Artist.objects.revisions(queen))), NUM_THREADS)
+        revisions = list(reversed(list(Artist.objects.revisions(queen))))
+
+        self.assertEqual(len(revisions), NUM_THREADS)
+
+        previous_revision = revisions[0].parent
+        # Ensure our base commit is the 000000000000000000000000000 commit.
+        self.assertEqual(previous_revision.revision, ''.zfill(len(previous_revision.revision)))
+        for revision in revisions:
+            parents = list(revision.parents)
+            # Ensure that we only have one parent
+            self.assertEqual(len(parents), 1)
+            # Ensure that the the parent revision is that of the previous revision (we want a linear revision history).
+            self.assertEqual(revision.parent.revision, previous_revision.revision)
+            previous_revision = revision

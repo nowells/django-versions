@@ -3,3 +3,6 @@ class VersionsException(Exception):
 
 class VersionDoesNotExist(VersionsException):
     pass
+
+class VersionsMultipleParents(VersionsException):
+    pass

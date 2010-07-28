@@ -21,7 +21,7 @@ from mercurial import ui
 
 from django.conf import settings
 from django.db.models.fields import related
-from versions.exceptions import VersionDoesNotExist
+from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents
 
 # Stores commits during a Managed Version Control session.
 _versions = threading.local()
@@ -56,11 +56,8 @@ class LogUI(ui.ui):
 
 class Version(object):
     def __init__(self, commit):
-        t, tz = commit.date()
-        self.revision = commit.hex()
-        self.user = commit.user()
-        self.message = commit.description()
-        self.date = datetime.datetime.fromtimestamp(time.mktime(time.gmtime(t - tz)))
+        self._commit = commit
+        self.revision = self._commit.hex()
 
     def __unicode__(self):
         return self.revision
@@ -73,6 +70,39 @@ class Version(object):
 
     def __eq__(self, other):
         return type(other) == type(self) and other.revision == self.revision
+
+    @property
+    def parents(self):
+        for parent in self._commit.parents():
+            yield Version(parent)
+
+    @property
+    def parent(self):
+        parents = self.parents
+        try:
+            parent = parents.next()
+        except StopIteration:
+            return None
+
+        try:
+            too_many = parents.next()
+        except StopIteration:
+            return parent
+        else:
+            raise VersionsMultipleParents('Found multiple parents for commit %s.' % self.revision)
+
+    @property
+    def user(self):
+        return self._commit.user()
+
+    @property
+    def message(self):
+        return self._commit.description()
+
+    @property
+    def date(self):
+        t, tz = self._commit.date()
+        return datetime.datetime.fromtimestamp(time.mktime(time.gmtime(t - tz)))
 
 class Versions(object):
     def reset(self):
@@ -239,7 +269,8 @@ class Versions(object):
         repository = self.repository(repo_path)
         instance_match = match.exact(repository.root, repository.getcwd(), [instance_path])
         change_contexts = walkchangerevs(repository, instance_match, {'rev': None}, lambda ctx, fns: ctx)
-        return [ Version(x) for x in change_contexts ]
+        for change_context in change_contexts:
+            yield Version(change_context)
 
     def revisions(self, instance):
         return self._revisions(instance.__class__, instance._get_pk_val())
