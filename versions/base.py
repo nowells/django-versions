@@ -130,7 +130,7 @@ class Repositories(threading.local):
         return difference
 
     def repository_path(self, cls, pk):
-        return 'default'
+        return cls._versions_options.repository
 
     def item_path(self, cls, pk):
         return os.path.join(cls.__module__.lower(), cls.__name__.lower(), str(pk))

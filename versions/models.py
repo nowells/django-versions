@@ -20,6 +20,7 @@ class VersionsOptions(object):
         cls._versions_options.include = include
         cls._versions_options.exclude = exclude
         cls._versions_options.core_include = ['_versions_status']
+        cls._versions_options.repository = getattr(klass, 'repository', 'default')
 
 class VersionsModel(models.Model):
     _versions_status = models.PositiveIntegerField(choices=VERSIONS_STATUS_CHOICES, default=VERSIONS_STATUS_PUBLISHED)
