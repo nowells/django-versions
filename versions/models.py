@@ -71,7 +71,7 @@ class VersionsModel(models.Model):
         if self._versions_revision is None:
             data = versions.data(self)
         else:
-            data = versions.version(self, rev=self._versions_revision)
+            data = versions.version(self, revision=self._versions_revision)
 
         for name, ids in data['related'].items():
             try:

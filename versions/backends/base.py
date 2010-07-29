@@ -1,19 +1,14 @@
-from django.contrib.auth import AnonymousUser
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 
-class Repository(object):
+class BaseRepository(object):
     def __init__(self, local=None, remote=None):
         self.local = local
         self.remote = remote
         self.reset()
-        self.create()
 
     def reset(self):
         self.user = None
         self.message = None
-
-    def create(self):
-        raise NotImplementedError
 
     def commit(self, items):
         raise NotImplementedError

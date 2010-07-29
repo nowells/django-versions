@@ -61,7 +61,7 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
                     revision = self.related_model_instance._versions_revision
 
                 if revision is not None:
-                    data = versions.version(self.related_model_instance, rev=revision)
+                    data = versions.version(self.related_model_instance, revision=revision)
                     pks = data['related'].get(self.related_model_attname, [])
                     self.core_filters = {'pk__in': pks}
 
@@ -129,7 +129,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     revision = revision and revision or self.related_model_instance._versions_revision
 
                 if revision is not None:
-                    data = versions.version(self.related_model_instance, rev=revision)
+                    data = versions.version(self.related_model_instance, revision=revision)
                     self.core_filters = {'pk__in': data['related'].get(self.related_model_attname)}
 
                 return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)

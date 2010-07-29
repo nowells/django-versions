@@ -23,34 +23,6 @@ from django.conf import settings
 from django.db.models.fields import related
 from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents
 
-class LogUI(ui.ui):
-    def __init__(self, *args, **kwargs):
-        self.log = logging.getLogger('versions')
-        super(LogUI, self).__init__(*args, **kwargs)
-
-    def write(self, *args, **opts):
-        if self._buffers:
-            self._buffers[-1].extend([str(a) for a in args])
-        else:
-            for a in args:
-                self.log.info(str(a))
-
-    def write_err(self, *args, **opts):
-        for a in args:
-            self.log.error(str(a))
-
-    def flush(self):
-        pass
-
-    def interactive(self):
-        return False
-
-    def formatted(self):
-        return False
-
-    def _readline(self, prompt=''):
-        raise Exception('Unable to readline on a non-interactive client.')
-
 class Version(object):
     def __init__(self, commit):
         self._commit = commit
@@ -103,19 +75,21 @@ class Version(object):
 
 class Versions(threading.local):
     changes = None
-    user = 'Anonymous'
-    message = 'There was no commit message specified.'
 
     def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.changes = None
-        self.user = 'Anonymous'
-        self.message = 'There was no commit message specified.'
+        from versions.backends.hg import MercurialRepository
+        self.repositories = {
+            'default': MercurialRepository(settings.VERSIONS_REPOSITORY_ROOT),
+            }
+        super(Versions, self).__init__()
 
     def is_managed(self):
         return self.changes is not None
+
+    def reset(self):
+        self.changes = None
+        for name, repo in self.repositories.items():
+            repo.reset()
 
     def start(self):
         if not self.is_managed():
@@ -126,7 +100,7 @@ class Versions(threading.local):
         revisions = {}
         if self.is_managed():
             for repo_path, items in self.changes.items():
-                revisions[repo_path] = self.commit(repo_path, items)
+                revisions[repo_path] = self.repositories[repo_path].commit(items)
             self.reset()
         return revisions
 
@@ -138,74 +112,11 @@ class Versions(threading.local):
         if self.is_managed():
             self.changes[repo_path][instance_path] = data
         else:
-            revision = self.commit(repo_path, {instance_path: data})
+            revision = self.repositories[repo_path].commit({instance_path: data})
         return revision
 
-    def repository(self, path):
-        repo_path = os.path.join(settings.VERSIONS_REPOSITORY_ROOT, path)
-        create = not os.path.isdir(repo_path)
-        hgui = LogUI()
-        hgui.setconfig('ui', 'interactive', 'off')
-        if not os.path.exists(os.path.dirname(repo_path)):
-            os.makedirs(os.path.dirname(repo_path))
-        try:
-            repository = hg.repository(hgui, repo_path, create=create)
-        except error.RepoError:
-            repository = hg.repository(hgui, repo_path)
-        except Exception, e:
-            raise
-
-        return repository
-
-    def remote_repository(self, path):
-        remote = getattr(settings, 'VERSIONS_REMOTE_REPOSITORY_ROOT', None)
-        if remote:
-            repo_path = os.path.join(settings.VERSIONS_REMOTE_REPOSITORY_ROOT, path)
-            hgui = LogUI()
-            hgui.setconfig('ui', 'interactive', 'off')
-            repository = hg.repository(hgui, repo_path)
-            return repository
-        return None
-
-    def commit(self, repo_path, items):
-        if items:
-            repository = self.repository(repo_path)
-            remote_repository = self.remote_repository(repo_path)
-
-            def file_callback(repo, memctx, path):
-                return context.memfilectx(
-                    path=path,
-                    data=items[path],
-                    islink=False,
-                    isexec=False,
-                    copied=False,
-                    )
-
-            lock = repository.lock()
-            try:
-                if remote_repository:
-                    repository.pull(remote_repository)
-
-                ctx = context.memctx(
-                    repo=repository,
-                    parents=('tip', None),
-                    text=self.message,
-                    files=items.keys(),
-                    filectxfn=file_callback,
-                    user=self.user,
-                    )
-                revision = node.hex(repository.commitctx(ctx))
-                # TODO: if we want the working copy of the repository to be updated as well add logic to enable this.
-                # hg.update(repository, repository['tip'].node())
-
-                if remote_repository:
-                    repository.push(remote_repository)
-                return revision
-            finally:
-                lock.release()
-
     def repository_path(self, cls, pk):
-        return cls.__module__.rsplit('.')[-2]
+        return 'default'
 
     def instance_path(self, cls, pk):
         return os.path.join(cls.__module__.lower(), cls.__name__.lower(), str(pk))
@@ -249,31 +160,18 @@ class Versions(threading.local):
             'related': related_data,
             }
 
-    def _version(self, cls, pk, rev='tip'):
+    def _version(self, cls, pk, revision=None):
         repo_path = self.repository_path(cls, pk)
         instance_path = self.instance_path(cls, pk)
-        if not rev:
-            raise VersionDoesNotExist('Revision `%s` does not exist for %s in %s' % (rev, instance_path, repo_path))
+        return self.deserialize(self.repositories[repo_path].version(instance_path, revision=revision))
 
-        repository = self.repository(repo_path)
-        fctx = repository.filectx(instance_path, rev)
-        try:
-            raw_data = fctx.data()
-        except error.LookupError:
-            raise VersionDoesNotExist('Revision `%s` does not exist for %s in %s' % (rev, instance_path, repo_path))
-        return self.deserialize(raw_data)
-
-    def version(self, instance, rev='tip'):
-        return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
+    def version(self, instance, revision=None):
+        return self._version(instance.__class__, instance._get_pk_val(), revision=revision)
 
     def _revisions(self, cls, pk):
         repo_path = self.repository_path(cls, pk)
         instance_path = self.instance_path(cls, pk)
-        repository = self.repository(repo_path)
-        instance_match = match.exact(repository.root, repository.getcwd(), [instance_path])
-        change_contexts = walkchangerevs(repository, instance_match, {'rev': None}, lambda ctx, fns: ctx)
-        for change_context in change_contexts:
-            yield Version(change_context)
+        return self.repositories[repo_path].revisions(instance_path)
 
     def revisions(self, instance):
         return self._revisions(instance.__class__, instance._get_pk_val())

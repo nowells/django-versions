@@ -1,3 +1,6 @@
+import logging
+import os
+
 from mercurial.cmdutil import walkchangerevs
 from mercurial import context
 from mercurial import error
@@ -7,34 +10,29 @@ from mercurial import node
 from mercurial import ui
 
 from versions.backends.base import BaseRepository
+from versions.exceptions import VersionDoesNotExist
 from versions.repo import Version
 
 class MercurialRepository(BaseRepository):
+    def __init__(self, *args, **kwargs):
+        self._ui = ui.ui()
+        self._ui.setconfig('ui', 'interactive', 'off')
+        super(MercurialRepository, self).__init__(*args, **kwargs)
+
     @property
     def _local_repo(self):
-        if not hasattr(self, '__local_repo'):
-            hgui = LogUI()
-            hgui.setconfig('ui', 'interactive', 'off')
-            self.__local_repo = hg.repository(hgui, self.local)
-        return self.__local_repo
+        if not os.path.exists(self.local):
+            try:
+                os.makedirs(self.local)
+                return hg.repository(self._ui, self.local, create=True)
+            except error.RepoError:
+                pass
+        return hg.repository(self._ui, self.local)
 
     @property
     def _remote_repo(self):
-        if not hasattr(self, '__remote_repo'):
-            hgui = LogUI()
-            hgui.setconfig('ui', 'interactive', 'off')
-            self.__remote_repo = hg.repository(hgui, self.remote)
-        return self.__remote_repo
-
-    def create(self):
-        if not os.path.exists(self.local):
-            try:
-                hgui = LogUI()
-                hgui.setconfig('ui', 'interactive', 'off')
-                os.makedirs(os.path.dirname(self.local))
-                hg.repository(hgui, self.local, create=True)
-            except error.RepoError:
-                pass
+        if self.remote:
+            return hg.repository(self._ui, self.remote)
 
     def commit(self, items):
         def file_callback(repo, memctx, path):
@@ -45,33 +43,36 @@ class MercurialRepository(BaseRepository):
                 isexec=False,
                 copied=False,
                 )
+        local_repo = self._local_repo
+        remote_repo = self._remote_repo
 
-        lock = self._local_repo.lock()
+        lock = local_repo.lock()
         try:
-            if self._remote_repo:
-                self._local_repo.pull(self._remote_repo)
+            if remote_repo:
+                local_repo.pull(self._remote_repo)
 
             ctx = context.memctx(
-                repo=self._local_repo,
+                repo=local_repo,
                 parents=('tip', None),
                 text=self.message,
                 files=items.keys(),
                 filectxfn=file_callback,
-                    user=self.user.id,
+                user=str(self.user.id),
                 )
-            revision = node.hex(self._local_repo.commitctx(ctx))
+            revision = node.hex(local_repo.commitctx(ctx))
             # TODO: if we want the working copy of the repository to be updated as well add logic to enable this.
-            # hg.update(self._local_repo, self._local_repo['tip'].node())
-            if self._remote_repo:
-                self._local_repo.push(self._remote_repo)
+            # hg.update(local_repo, local_repo['tip'].node())
+            if remote_repo:
+                local_repo.push(remote_repo)
 
             return revision
         finally:
             lock.release()
 
     def revisions(self, item):
-        instance_match = match.exact(self._local_repo.root, self._local_repo.getcwd(), [item])
-        change_contexts = walkchangerevs(self._local_repo, instance_match, {'rev': None}, lambda ctx, fns: ctx)
+        local_repo = self._local_repo
+        instance_match = match.exact(local_repo.root, local_repo.getcwd(), [item])
+        change_contexts = walkchangerevs(local_repo, instance_match, {'rev': None}, lambda ctx, fns: ctx)
         for change_context in change_contexts:
             yield Version(change_context)
 
@@ -79,7 +80,8 @@ class MercurialRepository(BaseRepository):
         if revision is None:
             revision = 'tip'
 
-        fctx = self._local_repo.filectx(item, revision)
+        local_repo = self._local_repo
+        fctx = local_repo.filectx(item, revision)
         try:
             raw_data = fctx.data()
         except error.LookupError:
