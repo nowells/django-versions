@@ -217,7 +217,16 @@ class Version(object):
 
     @property
     def user(self):
-        return self._commit.user()
+        if not hasattr(self, '_user'):
+            val = self._commit.user()
+            if val is None:
+                user = AnonymousUser()
+            else:
+                try:
+                    self._user = User.objects.get(pk=val)
+                except User.DoesNotExist:
+                    self._user = AnonymousUser()
+        return self._user
 
     @property
     def message(self):
