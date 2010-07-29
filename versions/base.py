@@ -11,6 +11,11 @@ try:
 except ImportError:
     import pickle
 
+try:
+    from functools import wraps
+except ImportError:
+    from django.utils.functional import wraps  # Python 2.3, 2.4 fallback.
+
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, User
 from django.core.exceptions import ImproperlyConfigured
@@ -218,9 +223,8 @@ class RevisionManager(object):
         self.finish()
         return False
 
-    def create_on_success(self, func):
-        """Creates a revision when the given function exist successfully."""
-        def _create_on_success(*args, **kwargs):
+    def commit_on_success(self, func):
+        def _commit_on_success(*args, **kwargs):
             self.start()
             try:
                 try:
@@ -231,7 +235,7 @@ class RevisionManager(object):
             finally:
                 self.finish()
             return result
-        return wraps(func)(_create_on_success)
+        return wraps(func)(_commit_on_success)
 
 class Version(object):
     def __init__(self, commit):
