@@ -153,6 +153,8 @@ class Repositories(threading.local):
     def _set_user(self, val):
         if val is None:
             self._user = AnonymousUser()
+        elif isinstance(val, AnonymousUser):
+            self._user = val
         elif isinstance(val, User):
             self._user = val
         else:
@@ -219,6 +221,8 @@ class Version(object):
 
     @property
     def user(self):
+        import ipdb
+        ipdb.set_trace()
         if not hasattr(self, '_user'):
             val = self._commit.user()
             if val is None:
