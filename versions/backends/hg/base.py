@@ -11,13 +11,13 @@ from mercurial import ui
 
 from versions.backends.base import BaseRepository
 from versions.exceptions import VersionDoesNotExist
-from versions.repo import Version
+from versions.base import repositories, Version
 
-class MercurialRepository(BaseRepository):
+class Repository(BaseRepository):
     def __init__(self, *args, **kwargs):
         self._ui = ui.ui()
         self._ui.setconfig('ui', 'interactive', 'off')
-        super(MercurialRepository, self).__init__(*args, **kwargs)
+        super(Repository, self).__init__(*args, **kwargs)
 
     @property
     def _local_repo(self):
@@ -54,10 +54,10 @@ class MercurialRepository(BaseRepository):
             ctx = context.memctx(
                 repo=local_repo,
                 parents=('tip', None),
-                text=self.message,
+                text=repositories.message,
                 files=items.keys(),
                 filectxfn=file_callback,
-                user=str(self.user.id),
+                user=str(repositories.user.id),
                 )
             revision = node.hex(local_repo.commitctx(ctx))
             # TODO: if we want the working copy of the repository to be updated as well add logic to enable this.

@@ -1,8 +1,8 @@
 from django.db import connection
 from django.db import models
 
+from versions.base import repositories
 from versions.constants import VERSIONS_STATUS_PUBLISHED
-from versions.repo import versions
 from versions.query import VersionsQuerySet, VersionsQuery
 
 class VersionsManager(models.Manager):
@@ -13,12 +13,12 @@ class VersionsManager(models.Manager):
 
     def revisions(self, instance_or_cls, pk=None):
         if pk is None:
-            return [ x for x in versions.revisions(instance_or_cls) ]
+            return [ x for x in repositories.revisions(instance_or_cls) ]
         else:
-            return [ x for x in versions._revisions(instance_or_cls, pk) ]
+            return [ x for x in repositories._revisions(instance_or_cls, pk) ]
 
     def diff(self, instance, rev0, rev1=None):
-        return versions.diff(instance, rev0, rev1)
+        return repositories.diff(instance, rev0, rev1)
 
     def get_query_set(self, revision=None, include_staged_delete=False):
         if self.related_model_instance is not None:
