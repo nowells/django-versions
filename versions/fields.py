@@ -6,45 +6,6 @@ from django.db.models import signals
 from versions.base import revision
 from versions.constants import VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_PUBLISHED
 
-def setup_versioned_related_fields(sender, **kargs):
-    from versions.models import VersionsModel
-    if issubclass(sender, VersionsModel):
-        try:
-            name_map = sender._meta._name_map
-        except AttributeError:
-            name_map = sender._meta.init_name_map()
-
-        for name, data in name_map.items():
-            field = data[0]
-            if isinstance(field, related.ForeignKey):
-                setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
-                setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
-                signals.post_save.connect(stage_related_models, sender=field.rel.to, dispatch_uid='versions_foreignkey_related_object_update')
-            elif isinstance(field, related.ManyToManyField):
-                setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
-
-        # Clean up after ourselves so that no previously initialized field caches are invalid.
-        for cache_name in ('_related_many_to_many_cache', '_name_name', '_related_objects_cache', '_m2m_cache', '_field_cache',):
-            try:
-                delattr(sender._meta, cache_name)
-            except:
-                pass
-
-signals.class_prepared.connect(setup_versioned_related_fields)
-
-def stage_related_models(sender, instance, created, **kwargs):
-    """
-    This signal handler is used to alert objects to changes in the ForeignKey of related objects.
-    We capture both the creation of a new ForeignKey relationship, as well as the removal or changing
-    of an existing ForeignKey relationship.
-    """
-    for field, models in instance._versions_related_updates.items():
-        related_field = instance._meta.get_field(field).related.get_accessor_name()
-        old_related_model, new_related_model = models
-        if old_related_model is not None:
-            revision.stage(old_related_model, related_updates={'removed': {related_field: [instance]}})
-        revision.stage(new_related_model, related_updates={'added': {related_field: [instance]}})
-
 class VersionsReverseSingleRelatedObjectDescriptor(related.ReverseSingleRelatedObjectDescriptor):
     def __set__(self, instance, value):
         try:
