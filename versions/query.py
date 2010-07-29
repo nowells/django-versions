@@ -5,9 +5,9 @@ from django.db.models import sql
 from django.db.models.signals import class_prepared
 from django.utils import tree
 
+from versions.base import repositories
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
-from versions.repo import versions
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
@@ -100,7 +100,7 @@ class VersionsQuery(sql.Query):
                         #       however, what do we do if the query filtered on the related object?
                         #    3) What if this object is only being included because the database value of the selected object at an old revision matched,
                         #       but the existing revision of that object does not?
-                        rev_data = versions._version(field['model'], row[field['pk']], rev=self._revision)
+                        rev_data = repositories._version(field['model'], row[field['pk']], revision=self._revision)
                         field_data = rev_data.get('field', {})
                         related_data = rev_data.get('related', {})
 

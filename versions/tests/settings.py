@@ -14,7 +14,12 @@ INSTALLED_APPS=(
     'versions',
     'versions.tests',
     )
-VERSIONS_REPOSITORY_ROOT = os.path.join(DIRNAME, '.repositories')
+VERSIONS_REPOSITORIES = {
+    'default': {
+        'backend': 'versions.backends.hg',
+        'local': os.path.join(DIRNAME, '.repositories'),
+        }
+    }
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.load_template_source',
     'django.template.loaders.app_directories.load_template_source',
