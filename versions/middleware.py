@@ -1,14 +1,15 @@
-from versions.base import repositories
+from versions.base import revision
 
 class VersionsMiddleware(object):
     def process_request(self, request):
-        repositories.start()
+        revision.start()
         if hasattr(request, 'user') and request.user.is_authenticated():
-            repositories.user = request.user
+            revision.user = request.user
 
     def process_exception(self, request, exception):
-        repositories.finish(exception=True)
+        revision.invalidate()
 
     def process_response(self, request, response):
-        repositories.finish()
+        while revision.is_active():
+            revision.finish()
         return response

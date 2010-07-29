@@ -4,7 +4,7 @@ from django.db.models import sql
 from django.db.models.signals import class_prepared
 from django.utils import tree
 
-from versions.base import repositories
+from versions.base import revision
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
 
@@ -30,7 +30,7 @@ def _remove_versions_status_filter(node):
 
 class VersionsQuery(sql.Query):
     def __init__(self, *args, **kwargs):
-        self._revision = kwargs.pop('revision', None)
+        self._revision = kwargs.pop('rev', None)
         self._include_staged_delete = kwargs.pop('include_staged_delete', False)
         super(VersionsQuery, self).__init__(*args, **kwargs)
 
@@ -94,7 +94,7 @@ class VersionsQuery(sql.Query):
                         #       however, what do we do if the query filtered on the related object?
                         #    3) What if this object is only being included because the database value of the selected object at an old revision matched,
                         #       but the existing revision of that object does not?
-                        rev_data = repositories._version(field['model'], row[field['pk']], revision=self._revision)
+                        rev_data = revision._version(field['model'], row[field['pk']], rev=self._revision)
                         field_data = rev_data.get('field', {})
                         related_data = rev_data.get('related', {})
 
@@ -119,7 +119,7 @@ class VersionsQuery(sql.Query):
 
 class VersionsQuerySet(query.QuerySet):
     def __init__(self, *args, **kwargs):
-        self._revision = kwargs.pop('revision', None)
+        self._revision = kwargs.pop('rev', None)
         super(VersionsQuerySet, self).__init__(*args, **kwargs)
 
     def _clone(self, *args, **kwargs):
