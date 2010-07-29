@@ -160,6 +160,8 @@ class Repositories(threading.local):
                 self._user = User.objects.get(pk=val)
             except User.DoesNotExist:
                 self._user = AnonymousUser()
+            except ValueError:
+                self._user = AnonymousUser()
 
     def _get_user(self):
         return self._user
@@ -225,6 +227,8 @@ class Version(object):
                 try:
                     self._user = User.objects.get(pk=val)
                 except User.DoesNotExist:
+                    self._user = AnonymousUser()
+                except ValueError:
                     self._user = AnonymousUser()
         return self._user
 
