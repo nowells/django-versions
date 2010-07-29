@@ -526,7 +526,6 @@ class VersionsOptionsTestCase(VersionsTestCase):
 
 class VersionsThreadedTestCase(VersionsTestCase):
     def test_concurrent_edits(self):
-        return
         @transaction.commit_on_success
         def concurrent_edit():
             try:

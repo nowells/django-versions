@@ -15,7 +15,7 @@ from versions.base import repositories, Version
 
 class Repository(BaseRepository):
     def __init__(self, *args, **kwargs):
-        self._ui = ui.ui()
+        self._ui = LogUI()
         self._ui.setconfig('ui', 'interactive', 'off')
         super(Repository, self).__init__(*args, **kwargs)
 
