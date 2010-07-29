@@ -6,6 +6,26 @@ from django.db.models import signals
 from versions.base import revision
 from versions.constants import VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_PUBLISHED
 
+def setup_versioned_related_fields(sender, **kargs):
+    from versions.models import VersionsModel
+
+    if issubclass(sender, VersionsModel):
+        try:
+            name_map = sender._meta._name_map
+        except AttributeError:
+            name_map = sender._meta.init_name_map()
+
+        for name, data in name_map.items():
+            field = data[0]
+            if isinstance(field, related.ForeignKey):
+                setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
+                setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
+                signals.post_save.connect(stage_related_models, sender=field.related.model, dispatch_uid='versions_foreignkey_related_object_update')
+            elif isinstance(field, related.ManyToManyField):
+                setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
+
+signals.class_prepared.connect(setup_versioned_related_fields)
+
 def stage_related_models(sender, instance, created, **kwargs):
     """
     This signal handler is used to alert objects to changes in the ForeignKey of related objects.
