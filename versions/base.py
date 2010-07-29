@@ -201,13 +201,13 @@ class RevisionManager(object):
     user = property(_get_user, _set_user)
 
     def _set_message(self, val):
-        if val is None:
-            self._state.message = u'There was no commit message specified.'
-        else:
-            self._state.message = val
+        self._state.message = val
 
     def _get_message(self):
-        return self._state.message
+        if not self._state.message:
+            return u'There was no commit message specified.'
+        else:
+            return self._state.message
 
     message = property(_get_message, _set_message)
 
