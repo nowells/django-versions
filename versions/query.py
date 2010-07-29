@@ -7,6 +7,7 @@ from django.utils import tree
 from versions.base import revision
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
+from versions import fields
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
