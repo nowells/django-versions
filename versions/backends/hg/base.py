@@ -11,7 +11,7 @@ from mercurial import ui
 
 from versions.backends.base import BaseRepository
 from versions.exceptions import VersionDoesNotExist
-from versions.base import repositories, Version
+from versions.base import revision, Version
 
 class Repository(BaseRepository):
     def __init__(self, *args, **kwargs):
@@ -54,38 +54,38 @@ class Repository(BaseRepository):
             ctx = context.memctx(
                 repo=local_repo,
                 parents=('tip', None),
-                text=repositories.message,
+                text=revision.message,
                 files=items.keys(),
                 filectxfn=file_callback,
-                user=str(repositories.user.id),
+                user=str(revision.user.id),
                 )
-            revision = node.hex(local_repo.commitctx(ctx))
+            version = node.hex(local_repo.commitctx(ctx))
             # TODO: if we want the working copy of the repository to be updated as well add logic to enable this.
             # hg.update(local_repo, local_repo['tip'].node())
             if remote_repo:
                 local_repo.push(remote_repo)
 
-            return revision
+            return version
         finally:
             lock.release()
 
-    def revisions(self, item):
+    def versions(self, item):
         local_repo = self._local_repo
         instance_match = match.exact(local_repo.root, local_repo.getcwd(), [item])
         change_contexts = walkchangerevs(local_repo, instance_match, {'rev': None}, lambda ctx, fns: ctx)
         for change_context in change_contexts:
             yield Version(change_context)
 
-    def version(self, item, revision=None):
-        if revision is None:
-            revision = 'tip'
+    def version(self, item, rev=None):
+        if rev is None:
+            rev = 'tip'
 
         local_repo = self._local_repo
-        fctx = local_repo.filectx(item, revision)
+        fctx = local_repo.filectx(item, rev)
         try:
             raw_data = fctx.data()
         except error.LookupError:
-            raise VersionDoesNotExist('Revision `%s` does not exist for %s in %s' % (revision, item, self.local))
+            raise VersionDoesNotExist('Version `%s` does not exist for %s in %s' % (rev, item, self.local))
         return raw_data
 
 class LogUI(ui.ui):

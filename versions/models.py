@@ -1,9 +1,9 @@
 from django.db import models
+from django.db.models.fields import related
 
-from versions.base import repositories
+from versions.base import revision
 from versions.constants import VERSIONS_STATUS_CHOICES, VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionsException
-from versions.fields import VersionsManyToManyField
 from versions.managers import VersionsManager
 
 class VersionsOptions(object):
@@ -20,6 +20,7 @@ class VersionsOptions(object):
         cls._versions_options.include = include
         cls._versions_options.exclude = exclude
         cls._versions_options.core_include = ['_versions_status']
+        cls._versions_options.repository = getattr(klass, 'repository', 'default')
 
 class VersionsModel(models.Model):
     _versions_status = models.PositiveIntegerField(choices=VERSIONS_STATUS_CHOICES, default=VERSIONS_STATUS_PUBLISHED)
@@ -50,7 +51,7 @@ class VersionsModel(models.Model):
     def save(self, *args, **kwargs):
         if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
             super(VersionsModel, self).save(*args, **kwargs)
-        return repositories.stage(self)
+        return revision.stage(self)
 
     def delete(self, *args, **kwargs):
         if self._versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
@@ -69,9 +70,9 @@ class VersionsModel(models.Model):
         super(VersionsModel, self).save()
 
         if self._versions_revision is None:
-            data = repositories.data(self)
+            data = revision.data(self)
         else:
-            data = repositories.version(self, revision=self._versions_revision)
+            data = revision.version(self, rev=self._versions_revision)
 
         for name, ids in data['related'].items():
             try:
@@ -79,10 +80,10 @@ class VersionsModel(models.Model):
             except:
                 pass
             else:
-                if isinstance(field, VersionsManyToManyField):
+                if isinstance(field, related.ManyToManyField):
                     setattr(self, name, self._versions_staged_changes.get(name, ids))
 
-        return repositories.stage(self)
+        return revision.stage(self)
 
     def stage(self):
         self._versions_status = VERSIONS_STATUS_STAGED_EDITS

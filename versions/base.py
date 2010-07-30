@@ -11,6 +11,11 @@ try:
 except ImportError:
     import pickle
 
+try:
+    from functools import wraps
+except ImportError:
+    from django.utils.functional import wraps  # Python 2.3, 2.4 fallback.
+
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, User
 from django.core.exceptions import ImproperlyConfigured
@@ -19,7 +24,7 @@ from django.db.models.fields import related
 from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents
 from versions.utils import load_backend
 
-__all__ = ('repositories',)
+__all__ = ('revision',)
 
 if not hasattr(settings, 'VERSIONS_REPOSITORIES'):
     raise ImproperlyConfigured("You must configure `VERSIONS_REPOSITORIES` in your settings.py")
@@ -28,27 +33,55 @@ elif not isinstance(settings.VERSIONS_REPOSITORIES, dict):
 elif not 'default' in settings.VERSIONS_REPOSITORIES:
     raise ImproperlyConfigured("You must always configure a `default` repository in `VERSIONS_REPOSITORIES`")
 
-class Repositories(threading.local):
-    changes = None
-
+class RevisionState(threading.local):
     def __init__(self):
-        self._repos = {}
         self.reset()
 
-    def is_managed(self):
-        return self.changes is not None
+    def reset(self):
+        self.objects = defaultdict(dict)
+        self.user = None
+        self.message = ""
+        self.depth = 0
+        self.is_invalid = False
+
+class RevisionManager(object):
+    __slots__ = ("__weakref__", "_repos", "_state",)
+
+    def __init__(self):
+        self._state = RevisionState()
+        self._repos = {}
+
+    def is_active(self):
+        return self._state.depth > 0
+
+    def assert_active(self):
+        """Checks for an active revision, throwning an exception if none."""
+        if not self.is_active():
+            raise VersionsManagementException("There is no active revision for this thread.")
 
     def start(self):
-        if not self.is_managed():
-            self.reset()
-            self.changes = defaultdict(dict)
+        self._state.depth += 1
 
-    def finish(self, exception=False):
+    def invalidate(self):
+        self.assert_active()
+        self._state.is_invalid = True
+
+    def is_invalid(self):
+        return self._state.is_invalid
+
+    def finish(self):
+        self.assert_active()
+        self._state.depth -= 1
         revisions = {}
-        if self.is_managed():
-            for repo, items in self.changes.items():
-                revisions[repo] = self[repo].commit(items)
-            self.reset()
+        # Handle end of revision conditions here.
+        if self._state.depth == 0:
+            objects = self._state.objects
+            try:
+                if objects and not self.is_invalid():
+                    for repo, items in objects.items():
+                        revisions[repo] = self[repo].commit(items)
+            finally:
+                self._state.reset()
         return revisions
 
     def stage(self, instance, related_updates=None):
@@ -56,8 +89,8 @@ class Repositories(threading.local):
         item = self.item_path(instance.__class__, instance._get_pk_val())
         data = self.serialize(instance, related_updates=related_updates)
         revision = None
-        if self.is_managed():
-            self.changes[repo][item] = data
+        if self.is_active():
+            self._state.objects[repo][item] = data
         else:
             revision = self[repo].commit({item: data})
         return revision
@@ -101,21 +134,21 @@ class Repositories(threading.local):
             'related': related_data,
             }
 
-    def _version(self, cls, pk, revision=None):
+    def _version(self, cls, pk, rev=None):
         repo = self.repository_path(cls, pk)
         item = self.item_path(cls, pk)
-        return self.deserialize(self[repo].version(item, revision=revision))
+        return self.deserialize(self[repo].version(item, rev=rev))
 
-    def version(self, instance, revision=None):
-        return self._version(instance.__class__, instance._get_pk_val(), revision=revision)
+    def version(self, instance, rev=None):
+        return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
 
-    def _revisions(self, cls, pk):
+    def _versions(self, cls, pk):
         repo = self.repository_path(cls, pk)
         item = self.item_path(cls, pk)
-        return self[repo].revisions(item)
+        return self[repo].versions(item)
 
-    def revisions(self, instance):
-        return self._revisions(instance.__class__, instance._get_pk_val())
+    def versions(self, instance):
+        return self._versions(instance.__class__, instance._get_pk_val())
 
     def diff(self, instance, rev0, rev1=None):
         inst0 = self.version(instance, rev0)
@@ -130,15 +163,10 @@ class Repositories(threading.local):
         return difference
 
     def repository_path(self, cls, pk):
-        return 'default'
+        return cls._versions_options.repository
 
     def item_path(self, cls, pk):
         return os.path.join(cls.__module__.lower(), cls.__name__.lower(), str(pk))
-
-    def reset(self):
-        self.changes = None
-        self.user = None
-        self.message = None
 
     def __getitem__(self, key):
         if key not in self._repos:
@@ -152,31 +180,62 @@ class Repositories(threading.local):
 
     def _set_user(self, val):
         if val is None:
-            self._user = AnonymousUser()
+            self._state.user = AnonymousUser()
+        elif isinstance(val, AnonymousUser):
+            self._state.user = val
         elif isinstance(val, User):
-            self._user = val
+            self._state.user = val
         else:
             try:
-                self._user = User.objects.get(pk=val)
+                self._state.user = User.objects.get(pk=val)
             except User.DoesNotExist:
-                self._user = AnonymousUser()
+                self._state.user = AnonymousUser()
+            except ValueError:
+                self._state.user = AnonymousUser()
 
     def _get_user(self):
-        return self._user
+        if self._state.user is None:
+            return AnonymousUser()
+        return self._state.user
 
     user = property(_get_user, _set_user)
 
     def _set_message(self, val):
-        if val is None:
-            self._message = u'There was no commit message specified.'
-        else:
-            self._message = val
+        self._state.message = val
 
     def _get_message(self):
-        return self._message
+        if not self._state.message:
+            return u'There was no commit message specified.'
+        else:
+            return self._state.message
 
     message = property(_get_message, _set_message)
 
+
+    def __enter__(self):
+        """Enters a block of revision management."""
+        self.start()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Leaves a block of revision management."""
+        if exc_type is not None:
+            self.invalidate()
+        self.finish()
+        return False
+
+    def commit_on_success(self, func):
+        def _commit_on_success(*args, **kwargs):
+            self.start()
+            try:
+                try:
+                    result = func(*args, **kwargs)
+                except:
+                    self.invalidate()
+                    raise
+            finally:
+                self.finish()
+            return result
+        return wraps(func)(_commit_on_success)
 
 class Version(object):
     def __init__(self, commit):
@@ -217,7 +276,20 @@ class Version(object):
 
     @property
     def user(self):
-        return self._commit.user()
+        import ipdb
+        ipdb.set_trace()
+        if not hasattr(self, '_user'):
+            val = self._commit.user()
+            if val is None:
+                user = AnonymousUser()
+            else:
+                try:
+                    self._user = User.objects.get(pk=val)
+                except User.DoesNotExist:
+                    self._user = AnonymousUser()
+                except ValueError:
+                    self._user = AnonymousUser()
+        return self._user
 
     @property
     def message(self):
@@ -229,4 +301,4 @@ class Version(object):
         return datetime.datetime.fromtimestamp(time.mktime(time.gmtime(t - tz)))
 
 
-repositories = Repositories()
+revision = RevisionManager()

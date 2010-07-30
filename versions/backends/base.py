@@ -6,8 +6,8 @@ class BaseRepository(object):
     def commit(self, items):
         raise NotImplementedError
 
-    def revisions(self, item):
+    def versions(self, item):
         raise NotImplementedError
 
-    def version(self, item, revision=None):
+    def version(self, item, rev=None):
         raise NotImplementedError

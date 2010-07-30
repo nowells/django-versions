@@ -17,7 +17,7 @@ INSTALLED_APPS=(
 VERSIONS_REPOSITORIES = {
     'default': {
         'backend': 'versions.backends.hg',
-        'local': os.path.join(DIRNAME, '.repositories'),
+        'local': os.path.join(DIRNAME, '.revision'),
         }
     }
 TEMPLATE_LOADERS = (

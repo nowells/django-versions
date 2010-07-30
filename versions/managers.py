@@ -2,38 +2,38 @@ import django
 from django.db import connection
 from django.db import models
 
-from versions.base import repositories
+from versions.base import revision
 from versions.constants import VERSIONS_STATUS_PUBLISHED
 from versions.query import VersionsQuerySet, VersionsQuery
 
 class VersionsManager(models.Manager):
     use_for_related_fields = True
 
-    def version(self, revision):
-        return self.get_query_set(revision)
+    def version(self, rev):
+        return self.get_query_set(rev)
 
-    def revisions(self, instance_or_cls, pk=None):
+    def versions(self, instance_or_cls, pk=None):
         if pk is None:
-            return [ x for x in repositories.revisions(instance_or_cls) ]
+            return [ x for x in revision.versions(instance_or_cls) ]
         else:
-            return [ x for x in repositories._revisions(instance_or_cls, pk) ]
+            return [ x for x in revision._versions(instance_or_cls, pk) ]
 
     def diff(self, instance, rev0, rev1=None):
-        return repositories.diff(instance, rev0, rev1)
+        return revision.diff(instance, rev0, rev1)
 
-    def get_query_set(self, revision=None, include_staged_delete=False):
+    def get_query_set(self, rev=None, include_staged_delete=False):
         if self.related_model_instance is not None:
-            revision = revision and revision or self.related_model_instance._versions_revision
+            rev = rev and rev or self.related_model_instance._versions_revision
 
         if django.VERSION < (1, 2):
-            query = VersionsQuery(self.model, connection, revision=revision, include_staged_delete=include_staged_delete)
-            qs = VersionsQuerySet(model=self.model, query=query, revision=revision)
+            query = VersionsQuery(self.model, connection, rev=rev, include_staged_delete=include_staged_delete)
+            qs = VersionsQuerySet(model=self.model, query=query, rev=rev)
         else:
-            query = VersionsQuery(self.model, revision=revision, include_staged_delete=include_staged_delete)
-            qs = VersionsQuerySet(model=self.model, using=self._db, query=query, revision=revision)
+            query = VersionsQuery(self.model, rev=rev, include_staged_delete=include_staged_delete)
+            qs = VersionsQuerySet(model=self.model, using=self._db, query=query, rev=rev)
 
         # If we are looking up the current state of the model instances, filter out deleted models. The Versions system will take care of filtering out the deleted revised objects.
-        if revision is None:
+        if rev is None:
             qs = qs.filter(_versions_status=VERSIONS_STATUS_PUBLISHED)
 
         return qs
