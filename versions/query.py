@@ -43,7 +43,7 @@ def setup_versioned_models(sender, **kargs):
             if isinstance(field, related.ForeignKey):
                 setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
                 setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
-                signals.post_save.connect(stage_related_models, sender=field.rel.to, dispatch_uid='versions_foreignkey_related_object_update')
+                signals.post_save.connect(stage_related_models, sender=sender, dispatch_uid='versions_foreignkey_related_object_update')
             elif isinstance(field, related.ManyToManyField):
                 setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
 
