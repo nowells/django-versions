@@ -40,6 +40,8 @@ class RevisionState(threading.local):
 
     def reset(self):
         self.objects = defaultdict(dict)
+        self.related_updates = defaultdict(list)
+        self.pending_staging = set([])
         self.user = None
         self.message = ""
         self.depth = 0
@@ -76,37 +78,52 @@ class RevisionManager(object):
         revisions = {}
         # Handle end of revision conditions here.
         if self._state.depth == 0:
-            objects = self._state.objects
             try:
-                if objects and not self.is_invalid():
-                    for repo, items in objects.items():
+                if not self.is_invalid() and (self._state.pending_staging or self._state.objects):
+                    while self._state.pending_staging:
+                        item = self._state.pending_staging.pop()
+                        self.stage(item)
+
+                    for repo, items in self._state.objects.items():
                         revisions[repo] = self[repo].commit(items)
             finally:
                 self._state.reset()
         return revisions
 
-    def stage(self, instance, related_updates=None):
+    def stage_related_update(self, instance, field_name, old, new):
+        if self.is_active():
+            related_field = instance._meta.get_field(field_name).related.get_accessor_name()
+            if old is not None:
+                self._state.pending_staging.add(old)
+                self._state.related_updates[old].append(['remove', related_field, instance.pk])
+            self._state.pending_staging.add(new)
+            self._state.related_updates[new].append(['add', related_field, instance.pk])
+        else:
+            raise NotImplementedError
+
+    def stage(self, instance):
         repo = self.repository_path(instance.__class__, instance._get_pk_val())
         item = self.item_path(instance.__class__, instance._get_pk_val())
 
-        # Fire off our pre_stage signal.
-        pre_stage.send(sender=instance.__class__, instance=instance)
-
-        data = self.serialize(instance, related_updates=related_updates)
         revision = None
+        data = self.serialize(instance)
+
+        if instance in self._state.pending_staging:
+            self._state.pending_staging.remove(instance)
+
         if self.is_active():
             self._state.objects[repo][item] = data
         else:
             revision = self[repo].commit({item: data})
         return revision
 
-    def serialize(self, instance, related_updates=None):
-        return pickle.dumps(self.data(instance, related_updates=related_updates))
+    def serialize(self, instance):
+        return pickle.dumps(self.data(instance))
 
     def deserialize(self, data):
         return pickle.loads(data)
 
-    def data(self, instance, related_updates=None):
+    def data(self, instance):
         field_names = [ x.name for x in instance._meta.fields if not x.primary_key ]
 
         if instance._versions_options.include:
@@ -122,16 +139,26 @@ class RevisionManager(object):
         except AttributeError:
             name_map = instance._meta.init_name_map()
 
-        # TODO: centralize this setup into an object based approach.
-        related_updates = related_updates or {}
+        related_removals = defaultdict(set)
+        related_additions = defaultdict(set)
+        for action, field, item in self._state.related_updates.get(instance, []):
+            if action == 'add':
+                if item in related_removals[field]:
+                    related_removals[field].remove(item)
+                related_additions[field].add(item)
+            else:
+                if item in related_additions[field]:
+                    related_additions[field].remove(item)
+                related_removals[field].add(item)
+
         for name, data in name_map.items():
             if isinstance(data[0], (related.RelatedObject, related.ManyToManyField)):
                 manager = getattr(instance, name)
                 if hasattr(manager, 'get_unfiltered_query_set'):
                     manager = manager.get_unfiltered_query_set()
                 related_items = set([ x['pk'] for x in manager.values('pk') ])
-                related_items = related_items.difference([ x.pk for x in related_updates.get('removed', {}).get(name, []) ])
-                related_items = related_items.union([ x.pk for x in related_updates.get('added', {}).get(name, []) ])
+                related_items = related_items.difference(related_removals.get(name, []))
+                related_items = related_items.union(related_additions.get(name, []))
                 related_data[name] = list(related_items)
 
         return {

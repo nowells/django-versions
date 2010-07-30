@@ -14,7 +14,7 @@ class VersionsReverseSingleRelatedObjectDescriptor(related.ReverseSingleRelatedO
 
         result = super(VersionsReverseSingleRelatedObjectDescriptor, self).__set__(instance, value)
         if old_value != value:
-            instance._versions_related_updates[self.field.name] = [old_value, value]
+            revision.stage_related_update(instance, self.field.name, old_value, value)
         return result
 
 class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescriptor):

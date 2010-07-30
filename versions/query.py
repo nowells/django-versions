@@ -14,19 +14,6 @@ from versions.signals import pre_stage
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
 
-def stage_related_models(sender, instance, **kwargs):
-    """
-    This signal handler is used to alert objects to changes in the ForeignKey of related objects.
-    We capture both the creation of a new ForeignKey relationship, as well as the removal or changing
-    of an existing ForeignKey relationship.
-    """
-    for field, models in instance._versions_related_updates.items():
-        related_field = instance._meta.get_field(field).related.get_accessor_name()
-        old_related_model, new_related_model = models
-        if old_related_model is not None:
-            revision.stage(old_related_model, related_updates={'removed': {related_field: [instance]}})
-        revision.stage(new_related_model, related_updates={'added': {related_field: [instance]}})
-
 def setup_versioned_models(sender, **kargs):
     from versions.models import VersionsModel
     if issubclass(sender, VersionsModel):
@@ -44,7 +31,6 @@ def setup_versioned_models(sender, **kargs):
             if isinstance(field, related.ForeignKey):
                 setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
                 setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
-                pre_stage.connect(stage_related_models, sender=sender, dispatch_uid='versions_foreignkey_related_object_update')
             elif isinstance(field, related.ManyToManyField):
                 setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
 

@@ -519,18 +519,26 @@ Remember loves stronger remember love walks tall
 
 class VersionsOptionsTestCase(VersionsTestCase):
     def test_field_exclude(self):
+        revision.start()
+
         queen = Artist(name='Queen')
         queen.save()
+
+        revision.finish()
 
         data = revision.data(queen)
         self.assertEqual(data['field'].keys(), ['_versions_status', 'name'])
 
     def test_field_include(self):
+        revision.start()
+
         queen = Artist(name='Queen')
         queen.save()
 
         a_kind_of_magic = Album(artist=queen, title='A Kind of Magic')
         a_kind_of_magic.save()
+
+        revision.finish()
 
         data = revision.data(a_kind_of_magic)
         self.assertEqual(data['field'].keys(), ['_versions_status', 'title'])
