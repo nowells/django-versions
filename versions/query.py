@@ -122,6 +122,7 @@ class VersionsQuery(sql.Query):
 
                 # Track whether this row existed at the time of the revision.
                 exists = True
+                row_data = {}
                 for field in fields.values():
                     try:
                         # TODO: how do we handle select_related queries?
@@ -131,7 +132,10 @@ class VersionsQuery(sql.Query):
                         #       however, what do we do if the query filtered on the related object?
                         #    3) What if this object is only being included because the database value of the selected object at an old revision matched,
                         #       but the existing revision of that object does not?
-                        rev_data = revision._version(field['model'], row[field['pk']], rev=self._revision)
+                        key = (field['model'], row[field['pk']],)
+                        if key not in row_data:
+                            row_data[key] = revision._version(field['model'], row[field['pk']], rev=self._revision)
+                        rev_data = row_data[key]
                         field_data = rev_data.get('field', {})
                         related_data = rev_data.get('related', {})
 
