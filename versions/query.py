@@ -2,18 +2,19 @@ from django.db import connection
 from django.db.models import query
 from django.db.models import sql
 from django.db.models.fields import related
-from django.db.models import signals
+from django.db.models.signals import class_prepared
 from django.utils import tree
 
 from versions.base import revision
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.fields import VersionsReverseSingleRelatedObjectDescriptor, VersionsForeignRelatedObjectsDescriptor, VersionsReverseManyRelatedObjectsDescriptor
+from versions.signals import pre_stage
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
 
-def stage_related_models(sender, instance, created, **kwargs):
+def stage_related_models(sender, instance, **kwargs):
     """
     This signal handler is used to alert objects to changes in the ForeignKey of related objects.
     We capture both the creation of a new ForeignKey relationship, as well as the removal or changing
@@ -43,7 +44,7 @@ def setup_versioned_models(sender, **kargs):
             if isinstance(field, related.ForeignKey):
                 setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
                 setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
-                signals.post_save.connect(stage_related_models, sender=sender, dispatch_uid='versions_foreignkey_related_object_update')
+                pre_stage.connect(stage_related_models, sender=sender, dispatch_uid='versions_foreignkey_related_object_update')
             elif isinstance(field, related.ManyToManyField):
                 setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
 
@@ -54,7 +55,7 @@ def setup_versioned_models(sender, **kargs):
             except:
                 pass
 
-signals.class_prepared.connect(setup_versioned_models)
+class_prepared.connect(setup_versioned_models)
 
 def _remove_versions_status_filter(node):
     for i, child in enumerate(node.children):

@@ -22,6 +22,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db.models.fields import related
 
 from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents
+from versions.signals import pre_stage
 from versions.utils import load_backend
 
 __all__ = ('revision',)
@@ -87,6 +88,10 @@ class RevisionManager(object):
     def stage(self, instance, related_updates=None):
         repo = self.repository_path(instance.__class__, instance._get_pk_val())
         item = self.item_path(instance.__class__, instance._get_pk_val())
+
+        # Fire off our pre_stage signal.
+        pre_stage.send(sender=instance.__class__, instance=instance)
+
         data = self.serialize(instance, related_updates=related_updates)
         revision = None
         if self.is_active():
