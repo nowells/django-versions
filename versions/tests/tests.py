@@ -414,18 +414,38 @@ Remember loves stronger remember love walks tall
         dont_lose_your_head = Song(album=a_kind_of_magic, title="Don't Lose Your Head")
         dont_lose_your_head.save()
 
-        original_lyrics = Lyrics(song=dont_lose_your_head, text="Dont lose your head")
+        princes_of_the_universe = Song(album=a_kind_of_magic, title='Princes of the Universe')
+        princes_of_the_universe.save()
+
+        original_lyrics = Lyrics(song=princes_of_the_universe, text="Dont lose your head")
         original_lyrics.stage()
 
         # Finish the versioning transaction.
         first_revision = revision.finish().values()[0]
 
+        # Start a managed versioning transaction.
+        revision.start()
+
+        original_lyrics.song = dont_lose_your_head
+        original_lyrics.stage()
+
+        # Finish the versioning transaction.
+        second_revision = revision.finish().values()[0]
+
         # Verify that the lyrics object does not exist from the published perspective.
         self.assertRaises(Lyrics.DoesNotExist, Lyrics.objects.get, pk=original_lyrics.pk)
         # Vefify that the the published Song object does not know that the new lyrics exist.
-        self.assertEquals(list(Song.objects.get(pk=dont_lose_your_head.pk).lyrics.all()), [])
-        # Verify that the staged version of the Song object knows that the lyrics exist.
-        self.assertEquals(list(Song.objects.version('tip').get(pk=dont_lose_your_head.pk).lyrics.all()), [original_lyrics])
+        self.assertEquals(list(Song.objects.get(pk=princes_of_the_universe.pk).lyrics.all()), [])
+
+        # Verify that the first staged version of the Song object knows that the lyrics exist.
+        self.assertEquals(list(Song.objects.version(first_revision).get(pk=princes_of_the_universe.pk).lyrics.all()), [original_lyrics])
+        # Verify that the first staged version of the Song object knows that the lyrics exist.
+        self.assertEquals(list(Song.objects.version(first_revision).get(pk=dont_lose_your_head.pk).lyrics.all()), [])
+
+        # Verify that the second staged version of the Song object knows that the lyrics do not exist because they were altered to point to the correct song.
+        self.assertEquals(list(Song.objects.version(second_revision).get(pk=princes_of_the_universe.pk).lyrics.all()), [])
+        # Verify that the second staged version of the Song object knows that the lyrics do not exist because they were altered to point to the correct song.
+        self.assertEquals(list(Song.objects.version(second_revision).get(pk=dont_lose_your_head.pk).lyrics.all()), [original_lyrics])
 
         # Start a managed versioning transaction.
         revision.start()
@@ -433,18 +453,9 @@ Remember loves stronger remember love walks tall
         original_lyrics.commit()
 
         # Finish the versioning transaction.
-        second_revision = revision.finish().values()[0]
+        third_revision = revision.finish().values()[0]
 
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk), original_lyrics)
-
-        # Start a managed versioning transaction.
-        revision.start()
-
-        original_lyrics.commit()
-
-        # Finish the versioning transaction.
-        second_revision = revision.finish().values()[0]
-
 
     def test_staged_edits_many_to_many(self):
         queen = Artist(name='Queen')
