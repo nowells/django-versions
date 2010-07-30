@@ -63,7 +63,7 @@ class VersionsModel(models.Model):
     def commit(self):
         if self._versions_status == VERSIONS_STATUS_STAGED_DELETE:
             self._versions_status = VERSIONS_STATUS_DELETED
-        else:
+        elif self._versions_status == VERSIONS_STATUS_STAGED_EDITS:
             self._versions_status = VERSIONS_STATUS_PUBLISHED
 
         # We don't want to call our save method, because we want to stage the state of this model until we set the state of all unpublihsed manytomany edits.
