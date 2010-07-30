@@ -9,7 +9,6 @@ from versions.base import revision
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
 from versions.fields import VersionsReverseSingleRelatedObjectDescriptor, VersionsForeignRelatedObjectsDescriptor, VersionsReverseManyRelatedObjectsDescriptor
-from versions.signals import pre_stage
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}

@@ -22,7 +22,6 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db.models.fields import related
 
 from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents
-from versions.signals import pre_stage
 from versions.utils import load_backend
 
 __all__ = ('revision',)
