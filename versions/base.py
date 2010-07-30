@@ -45,7 +45,7 @@ class RevisionState(threading.local):
         self.is_invalid = False
 
 class RevisionManager(object):
-    __slots__ = "__weakref__", "_repos", "_state",
+    __slots__ = ("__weakref__", "_repos", "_state",)
 
     def __init__(self):
         self._state = RevisionState()

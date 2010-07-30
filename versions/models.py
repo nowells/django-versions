@@ -1,9 +1,9 @@
 from django.db import models
+from django.db.models.fields import related
 
 from versions.base import revision
 from versions.constants import VERSIONS_STATUS_CHOICES, VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionsException
-from versions.fields import VersionsManyToManyField
 from versions.managers import VersionsManager
 
 class VersionsOptions(object):
@@ -80,7 +80,7 @@ class VersionsModel(models.Model):
             except:
                 pass
             else:
-                if isinstance(field, VersionsManyToManyField):
+                if isinstance(field, related.ManyToManyField):
                     setattr(self, name, self._versions_staged_changes.get(name, ids))
 
         return revision.stage(self)

@@ -1,10 +1,9 @@
 from django.db import models
-from versions.fields import VersionsManyToManyField, VersionsForeignKey
 from versions.models import VersionsModel, VersionsOptions
 
 class Artist(VersionsModel):
     name = models.CharField(max_length=50)
-    fans = VersionsManyToManyField('auth.User', blank=True, related_name='favorite_artists')
+    fans = models.ManyToManyField('auth.User', blank=True, related_name='favorite_artists')
     time_modified = models.DateTimeField(auto_now=True)
 
     class Versions(VersionsOptions):
@@ -14,7 +13,7 @@ class Artist(VersionsModel):
         return self.name
 
 class Album(VersionsModel):
-    artist = VersionsForeignKey(Artist, related_name='albums')
+    artist = models.ForeignKey(Artist, related_name='albums')
     title = models.CharField(max_length=50)
     time_modified = models.DateTimeField(auto_now=True)
 
@@ -25,7 +24,7 @@ class Album(VersionsModel):
         return self.title
 
 class Song(VersionsModel):
-    album = VersionsForeignKey(Album, related_name='songs')
+    album = models.ForeignKey(Album, related_name='songs')
     title = models.CharField(max_length=50)
     seconds = models.PositiveIntegerField(null=True, blank=True)
 
@@ -33,7 +32,7 @@ class Song(VersionsModel):
         return self.title
 
 class Lyrics(VersionsModel):
-    song = VersionsForeignKey(Song, related_name='lyrics')
+    song = models.ForeignKey(Song, related_name='lyrics')
     text = models.TextField(blank=True)
 
     def __unicode__(self):
@@ -41,4 +40,4 @@ class Lyrics(VersionsModel):
 
 class Venue(VersionsModel):
     name = models.CharField(max_length=50)
-    artists = VersionsManyToManyField(Artist, blank=True, related_name='venues')
+    artists = models.ManyToManyField(Artist, blank=True, related_name='venues')
