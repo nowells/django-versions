@@ -1,7 +1,6 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.db.models.fields import related
-from django.db.models import signals
 
 from versions.base import revision
 from versions.constants import VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_PUBLISHED
