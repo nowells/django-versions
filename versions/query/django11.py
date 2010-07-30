@@ -62,11 +62,7 @@ def _remove_versions_status_filter(node):
         if isinstance(child, tree.Node):
             _remove_versions_status_filter(child)
         else:
-            if django.VERSION < (1, 2):
-                field_name = child[0][1]
-            else:
-                field_name = child[0].field.name
-
+            field_name = child[0][1]
             if field_name == '_versions_status':
                 del node.children[i]
 
