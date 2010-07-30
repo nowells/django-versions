@@ -48,7 +48,7 @@ def setup_versioned_models(sender, **kargs):
                 setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
 
         # Clean up after ourselves so that no previously initialized field caches are invalid.
-        for cache_name in ('_related_many_to_many_cache', '_name_name', '_related_objects_cache', '_m2m_cache', '_field_cache',):
+        for cache_name in ('_related_many_to_many_cache', '_name_map', '_related_objects_cache', '_m2m_cache', '_field_cache',):
             try:
                 delattr(sender._meta, cache_name)
             except:
