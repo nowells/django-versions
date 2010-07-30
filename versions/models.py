@@ -51,7 +51,8 @@ class VersionsModel(models.Model):
     def __save_base(self, *args, **kwargs):
         super(VersionsModel, self).save()
 
-        for field, model_instance in self._versions_related_updates.items():
+        while self._versions_related_updates:
+            field, model_instance = self._versions_related_updates.popitem()
             related_field = self._meta.get_field(field).related.get_accessor_name()
             revision.stage_related_update(self, field, None, model_instance)
 

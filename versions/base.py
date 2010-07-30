@@ -46,6 +46,7 @@ class RevisionState(threading.local):
         self.message = ""
         self.depth = 0
         self.is_invalid = False
+        self.processing = False
 
 class RevisionManager(object):
     __slots__ = ("__weakref__", "_repos", "_state",)
@@ -55,7 +56,7 @@ class RevisionManager(object):
         self._repos = {}
 
     def is_active(self):
-        return self._state.depth > 0
+        return bool(self._state.depth > 0) or self._state.processing
 
     def assert_active(self):
         """Checks for an active revision, throwning an exception if none."""
@@ -78,6 +79,7 @@ class RevisionManager(object):
         revisions = {}
         # Handle end of revision conditions here.
         if self._state.depth == 0:
+            self._state.processing = True
             try:
                 if not self.is_invalid() and (self._state.pending_staging or self._state.objects):
                     while self._state.pending_staging:
