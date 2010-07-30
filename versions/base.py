@@ -281,8 +281,6 @@ class Version(object):
 
     @property
     def user(self):
-        import ipdb
-        ipdb.set_trace()
         if not hasattr(self, '_user'):
             val = self._commit.user()
             if val is None:
