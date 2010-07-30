@@ -108,8 +108,7 @@ class RevisionManager(object):
         revision = None
         data = self.serialize(instance)
 
-        if instance in self._state.pending_staging:
-            self._state.pending_staging.remove(instance)
+        self._state.pending_staging.discard(instance)
 
         if self.is_active():
             self._state.objects[repo][item] = data
@@ -143,12 +142,10 @@ class RevisionManager(object):
         related_additions = defaultdict(set)
         for action, field, item in self._state.related_updates.get(instance, []):
             if action == 'add':
-                if item in related_removals[field]:
-                    related_removals[field].remove(item)
+                related_removals[field].discard(item)
                 related_additions[field].add(item)
             else:
-                if item in related_additions[field]:
-                    related_additions[field].remove(item)
+                related_additions[field].discard(item)
                 related_removals[field].add(item)
 
         for name, data in name_map.items():
