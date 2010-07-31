@@ -59,14 +59,14 @@ class VersionsModel(models.Model):
     def save(self, *args, **kwargs):
         if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
             self.__save_base(*args, **kwargs)
-        return revision.stage(self)
+        revision.stage(self)
 
     def delete(self, *args, **kwargs):
         if self._versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
             self._versions_status = VERSIONS_STATUS_STAGED_DELETE
         else:
             self._versions_status = VERSIONS_STATUS_DELETED
-        return self.save()
+        self.save()
 
     def commit(self):
         if self._versions_status == VERSIONS_STATUS_STAGED_DELETE:
@@ -92,8 +92,8 @@ class VersionsModel(models.Model):
                 if isinstance(field, related.ManyToManyField):
                     setattr(self, name, self._versions_staged_changes.get(name, ids))
 
-        return revision.stage(self)
+        revision.stage(self)
 
     def stage(self):
         self._versions_status = VERSIONS_STATUS_STAGED_EDITS
-        return self.save()
+        self.save()
