@@ -66,6 +66,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     self.related_model_instance._versions_staged_changes[self.related_model_attname] = changes
                 else:
                     super(VersionsRelatedManager, self).add(*args, **kwargs)
+                # TODO: fix this to stage changes
                 revision.stage(self.related_model_instance)
 
             def remove(self, *args, **kwargs):
@@ -75,6 +76,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     self.related_model_instance._versions_staged_changes[self.related_model_attname] = [ x for x in changes if x not in removed ]
                 else:
                     super(VersionsRelatedManager, self).remove(*args, **kwargs)
+                # TODO: fix this to stage changes
                 revision.stage(self.related_model_instance)
 
             def clear(self, *args, **kwargs):
@@ -82,6 +84,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     self.related_model_instance._versions_staged_changes[self.related_model_attname] = []
                 else:
                     super(VersionsRelatedManager, self).clear(*args, **kwargs)
+                # TODO: fix this to stage changes
                 revision.stage(self.related_model_instance)
 
             def get_unfiltered_query_set(self):

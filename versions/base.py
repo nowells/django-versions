@@ -21,7 +21,7 @@ from django.contrib.auth.models import AnonymousUser, User
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models.fields import related
 
-from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents
+from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents, VersionsManagementException
 from versions.utils import load_backend
 
 __all__ = ('revision',)
@@ -60,7 +60,7 @@ class RevisionManager(object):
     def assert_active(self):
         """Checks for an active revision, throwning an exception if none."""
         if not self.is_active():
-            raise VersionsManagementException("There is no active revision for this thread.")
+            raise VersionsManagementException("There is no active revision transaction for this thread.")
 
     def start(self):
         self._state.depth += 1
@@ -92,30 +92,25 @@ class RevisionManager(object):
         return revisions
 
     def stage_related_update(self, instance, field_name, old, new):
-        if self.is_active():
-            related_field = instance._meta.get_field(field_name).related.get_accessor_name()
-            if old is not None:
-                self._state.pending_staging.add(old)
-                self._state.related_updates[old].append(['remove', related_field, instance.pk])
-            self._state.pending_staging.add(new)
-            self._state.related_updates[new].append(['add', related_field, instance.pk])
-        else:
-            raise NotImplementedError
+        self.assert_active()
+
+        related_field = instance._meta.get_field(field_name).related.get_accessor_name()
+        if old is not None:
+            self._state.pending_staging.add(old)
+            self._state.related_updates[old].append(['remove', related_field, instance.pk])
+        self._state.pending_staging.add(new)
+        self._state.related_updates[new].append(['add', related_field, instance.pk])
 
     def stage(self, instance):
+        self.assert_active()
+
         repo = self.repository_path(instance.__class__, instance._get_pk_val())
         item = self.item_path(instance.__class__, instance._get_pk_val())
 
-        revision = None
-        data = self.serialize(instance)
-
         self._state.pending_staging.discard(instance)
 
-        if self.is_active():
-            self._state.objects[repo][item] = data
-        else:
-            revision = self[repo].commit({item: data})
-        return revision
+        data = self.serialize(instance)
+        self._state.objects[repo][item] = data
 
     def serialize(self, instance):
         return pickle.dumps(self.data(instance))

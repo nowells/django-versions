@@ -10,7 +10,7 @@ from django.db import transaction
 from django.test import TestCase
 
 from versions.base import revision
-from versions.exceptions import VersionDoesNotExist, VersionsException
+from versions.exceptions import VersionDoesNotExist, VersionsException, VersionsManagementException
 from versions.tests.models import Artist, Album, Song, Lyrics, Venue
 
 class VersionsTestCase(TestCase):
@@ -25,23 +25,7 @@ class VersionsTestCase(TestCase):
 class VersionsModelTestCase(VersionsTestCase):
     def test_unmanaged_edits(self):
         queen = Artist(name='Queen')
-        queen.save()
-        self.assertEquals(len(Artist.objects.versions(queen)), 1)
-
-        prince = Artist(name='Prince')
-        prince.save()
-        self.assertEquals(len(Artist.objects.versions(prince)), 1)
-
-        # Verify that the commit for Queen and Prince happened in different versions.
-        self.assertNotEqual(Artist.objects.versions(prince), Artist.objects.versions(queen))
-
-        prince.name = 'The Artist Formerly Known As Prince'
-        prince.save()
-        self.assertEquals(len(Artist.objects.versions(prince)), 2)
-
-        prince.name = 'Prince'
-        prince.save()
-        self.assertEquals(len(Artist.objects.versions(prince)), 3)
+        self.assertRaises(VersionsManagementException, queen.save)
 
     def test_managed_edits(self):
         # Start a managed versioning session.
@@ -147,14 +131,20 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEquals(len(third_a_kind_of_magic.songs.all()), 3)
 
     def test_revision_retrieval(self):
+        revision.start()
         prince = Artist(name='Prince')
-        first_revision = prince.save()
+        prince.save()
+        first_revision = revision.finish().values()[0]
 
+        revision.start()
         prince.name = 'The Artist Formerly Known As Prince'
-        second_revision = prince.save()
+        prince.save()
+        second_revision = revision.finish().values()[0]
 
+        revision.start()
         prince.name = 'Prince'
-        third_revision = prince.save()
+        prince.save()
+        third_revision = revision.finish().values()[0]
 
         first_prince = Artist.objects.version(first_revision).get(pk=prince.pk)
         self.assertEquals(first_prince.name, 'Prince')
@@ -213,12 +203,13 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Album.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, friends_will_be_friends])
 
     def test_disabled_functions(self):
+        revision.start()
         queen = Artist(name='Queen')
         queen.save()
 
         prince = Artist(name='Price')
         prince.save()
-
+        revision.finish()
         self.assertEqual(Artist.objects.count(), 2)
 
         self.assertRaises(VersionsException, Artist.objects.version('tip').count)
@@ -258,7 +249,10 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
 
+
     def test_many_to_many_versioned_update(self):
+        revision.start()
+
         fan1 = User(username='fan1', email='fan1@example.com')
         fan1.save()
 
@@ -266,6 +260,8 @@ class VersionsModelTestCase(VersionsTestCase):
         fan2.save()
 
         Artist(name='Queen').save()
+
+        revision.finish()
 
         # Start a managed versioning transaction.
         revision.start()
@@ -458,11 +454,11 @@ Remember loves stronger remember love walks tall
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk), original_lyrics)
 
     def test_staged_edits_many_to_many(self):
-        queen = Artist(name='Queen')
-        queen.save()
-
         # Start a managed versioning transaction.
         revision.start()
+
+        queen = Artist(name='Queen')
+        queen.save()
 
         venue = Venue(name='Home')
         venue.commit()
@@ -546,6 +542,7 @@ class VersionsOptionsTestCase(VersionsTestCase):
 class VersionsThreadedTestCase(VersionsTestCase):
     def test_concurrent_edits(self):
         @transaction.commit_on_success
+        @revision.commit_on_success
         def concurrent_edit():
             try:
                 queen, is_new = Artist.objects.version('tip').get_or_create(pk=1, defaults={'name': 'Queen'})
@@ -577,13 +574,13 @@ class VersionsThreadedTestCase(VersionsTestCase):
 
         self.assertEqual(len(versions), NUM_THREADS)
 
-        previous_revision = versions[0].parent
+        previous_version = versions[0].parent
         # Ensure our base commit is the 000000000000000000000000000 commit.
-        self.assertEqual(previous_revision.revision, ''.zfill(len(previous_revision.revision)))
-        for revision in versions:
-            parents = list(revision.parents)
+        self.assertEqual(previous_version.revision, ''.zfill(len(previous_version.revision)))
+        for version in versions:
+            parents = list(version.parents)
             # Ensure that we only have one parent
             self.assertEqual(len(parents), 1)
             # Ensure that the the parent revision is that of the previous revision (we want a linear revision history).
-            self.assertEqual(revision.parent.revision, previous_revision.revision)
-            previous_revision = revision
+            self.assertEqual(version.parent.revision, previous_version.revision)
+            previous_version = version
