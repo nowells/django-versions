@@ -38,14 +38,15 @@ class RevisionState(threading.local):
         self.reset()
 
     def reset(self):
-        self.objects = defaultdict(dict)
-        self.related_updates = defaultdict(list)
-        self.pending_staging = set([])
+        self.staged_objects = defaultdict(dict)
+        self.pending_objects = set([])
+        self.pending_many_to_many_updates = defaultdict(list)
+        self.pending_related_updates = defaultdict(list)
         self.user = None
         self.message = ""
         self.depth = 0
         self.is_invalid = False
-        self.processing = False
+        self.is_finishing = False
 
 class RevisionManager(object):
     __slots__ = ("__weakref__", "_repos", "_state",)
@@ -55,7 +56,7 @@ class RevisionManager(object):
         self._repos = {}
 
     def is_active(self):
-        return bool(self._state.depth > 0) or self._state.processing
+        return bool(self._state.depth > 0) or self._state.is_finishing
 
     def assert_active(self):
         """Checks for an active revision, throwning an exception if none."""
@@ -78,14 +79,14 @@ class RevisionManager(object):
         revisions = {}
         # Handle end of revision conditions here.
         if self._state.depth == 0:
-            self._state.processing = True
+            self._state.is_finishing = True
             try:
-                if not self.is_invalid() and (self._state.pending_staging or self._state.objects):
-                    while self._state.pending_staging:
-                        item = self._state.pending_staging.pop()
+                if not self.is_invalid() and (self._state.pending_objects or self._state.staged_objects):
+                    while self._state.pending_objects:
+                        item = self._state.pending_objects.pop()
                         self.stage(item)
 
-                    for repo, items in self._state.objects.items():
+                    for repo, items in self._state.staged_objects.items():
                         revisions[repo] = self[repo].commit(items)
             finally:
                 self._state.reset()
@@ -96,9 +97,9 @@ class RevisionManager(object):
 
         related_field = instance._meta.get_field(field_name).related.get_accessor_name()
         if old is not None:
-            self._state.pending_staging.add(old)
+            self._state.pending_objects.add(old)
             self._state.related_updates[old].append(['remove', related_field, instance.pk])
-        self._state.pending_staging.add(new)
+        self._state.pending_objects.add(new)
         self._state.related_updates[new].append(['add', related_field, instance.pk])
 
     def stage(self, instance):
@@ -107,10 +108,10 @@ class RevisionManager(object):
         repo = self.repository_path(instance.__class__, instance._get_pk_val())
         item = self.item_path(instance.__class__, instance._get_pk_val())
 
-        self._state.pending_staging.discard(instance)
+        self._state.pending_objects.discard(instance)
 
         data = self.serialize(instance)
-        self._state.objects[repo][item] = data
+        self._state.staged_objects[repo][item] = data
 
     def serialize(self, instance):
         return pickle.dumps(self.data(instance))
