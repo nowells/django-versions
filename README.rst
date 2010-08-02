@@ -48,10 +48,28 @@ Add ``VERSIONS_REPOSITORIES`` to your settings file, pointing to the location wh
               }
          }
 
-Optionally, install ``VersionsMiddleware`` to allow for grouping all model changes within a request into one commit::
+Enabling Version Management
+...........................
+
+Install the ``VersionsMiddleware``::
 
     MIDDLEWARE_CLASSES = (
         ...
         'versions.middleware.VersionsMiddleware',
         ...
         )
+
+Or handle enabling editing of Versioned models manually::
+
+    from versions.base import revision
+
+    @revision.commit_on_success
+    def my_editing_function(request):
+        m = MyModel.objects.get(pk=1)
+        m.save()
+
+
+    def my_other_editing_function(request):
+        with revision:
+            m = MyModel.objects.get(pk=1)
+            m.save()
