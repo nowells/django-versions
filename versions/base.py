@@ -98,9 +98,9 @@ class RevisionManager(object):
         related_field = instance._meta.get_field(field_name).related.get_accessor_name()
         if old is not None:
             self._state.pending_objects.add(old)
-            self._state.related_updates[old].append(['remove', related_field, instance.pk])
+            self._state.pending_related_updates[old].append(['remove', related_field, instance.pk])
         self._state.pending_objects.add(new)
-        self._state.related_updates[new].append(['add', related_field, instance.pk])
+        self._state.pending_related_updates[new].append(['add', related_field, instance.pk])
 
     def stage(self, instance):
         self.assert_active()
@@ -137,7 +137,7 @@ class RevisionManager(object):
 
         related_removals = defaultdict(set)
         related_additions = defaultdict(set)
-        for action, field, item in self._state.related_updates.get(instance, []):
+        for action, field, item in self._state.pending_related_updates.get(instance, []):
             if action == 'add':
                 related_removals[field].discard(item)
                 related_additions[field].add(item)
