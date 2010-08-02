@@ -39,22 +39,27 @@ class VersionsModel(models.Model):
 
     # Used to store the revision of the model.
     _versions_revision = None
-    _versions_staged_changes = None
-    _versions_related_updates = None
 
     def __init__(self, *args, **kwargs):
         self._versions_revision = None
-        self._versions_related_updates = {}
-        self._versions_staged_changes = {}
         super(VersionsModel, self).__init__(*args, **kwargs)
 
     def __save_base(self, *args, **kwargs):
+        is_new = self._get_pk_val() is None
         super(VersionsModel, self).save()
 
-        while self._versions_related_updates:
-            field, model_instance = self._versions_related_updates.popitem()
-            related_field = self._meta.get_field(field).related.get_accessor_name()
-            revision.stage_related_update(self, field, None, model_instance)
+        if is_new:
+            try:
+                name_map = self._meta._name_map
+            except AttributeError:
+                name_map = self._meta.init_name_map()
+
+            for name, data in name_map.items():
+                if isinstance(data[0], related.ForeignKey):
+                    related_field = self._meta.get_field(name).related.get_accessor_name()
+                    obj = getattr(self, name, None)
+                    if obj:
+                        revision.stage_related_updates(obj, related_field, 'add', [self], symmetrical=False)
 
     def save(self, *args, **kwargs):
         if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
@@ -90,7 +95,10 @@ class VersionsModel(models.Model):
                 pass
             else:
                 if isinstance(field, related.ManyToManyField):
-                    setattr(self, name, self._versions_staged_changes.get(name, ids))
+                    if self in revision._state.pending_related_updates and name in revision._state.pending_related_updates[self]:
+                        setattr(self, name, revision._state.pending_related_updates[self][name])
+                    else:
+                        setattr(self, name, ids)
 
         revision.stage(self)
 

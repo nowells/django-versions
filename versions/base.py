@@ -40,13 +40,14 @@ class RevisionState(threading.local):
     def reset(self):
         self.staged_objects = defaultdict(dict)
         self.pending_objects = set([])
-        self.pending_many_to_many_updates = defaultdict(list)
-        self.pending_related_updates = defaultdict(list)
+        self.pending_related_updates = defaultdict(dict)
         self.user = None
         self.message = ""
         self.depth = 0
         self.is_invalid = False
         self.is_finishing = False
+        self.debug = False
+        self.latest_transactions = {}
 
 class RevisionManager(object):
     __slots__ = ("__weakref__", "_repos", "_state",)
@@ -63,7 +64,13 @@ class RevisionManager(object):
         if not self.is_active():
             raise VersionsManagementException("There is no active revision transaction for this thread.")
 
+    def latest_transactions(self):
+        return self._state.latest_transactions
+    latest_transactions = property(latest_transactions)
+
     def start(self):
+        if self._state.depth == 0:
+            self._state.reset()
         self._state.depth += 1
 
     def invalidate(self):
@@ -76,9 +83,9 @@ class RevisionManager(object):
     def finish(self):
         self.assert_active()
         self._state.depth -= 1
-        revisions = {}
         # Handle end of revision conditions here.
         if self._state.depth == 0:
+            transactions = {}
             self._state.is_finishing = True
             try:
                 if not self.is_invalid() and (self._state.pending_objects or self._state.staged_objects):
@@ -87,20 +94,45 @@ class RevisionManager(object):
                         self.stage(item)
 
                     for repo, items in self._state.staged_objects.items():
-                        revisions[repo] = self[repo].commit(items)
+                        transactions[repo] = self[repo].commit(items)
             finally:
                 self._state.reset()
-        return revisions
 
-    def stage_related_update(self, instance, field_name, old, new):
+            self._state.latest_transactions = transactions
+
+    def stage_related_updates(self, instance, field_name, action, items=None, symmetrical=True):
+        from versions.models import VersionsModel
+
         self.assert_active()
 
-        related_field = instance._meta.get_field(field_name).related.get_accessor_name()
-        if old is not None:
-            self._state.pending_objects.add(old)
-            self._state.pending_related_updates[old].append(['remove', related_field, instance.pk])
-        self._state.pending_objects.add(new)
-        self._state.pending_related_updates[new].append(['add', related_field, instance.pk])
+        self._state.pending_objects.add(instance)
+
+        if items is None:
+            items = []
+
+        if field_name not in self._state.pending_related_updates[instance]:
+            self._state.pending_related_updates[instance][field_name] = set(self.data(instance)['related'][field_name])
+        current_items = self._state.pending_related_updates[instance][field_name]
+
+        affected_items = []
+        if action == 'add':
+            affected_items = items
+            self._state.pending_related_updates[instance][field_name] = current_items.union([ hasattr(x, '_get_pk_val') and x._get_pk_val() or x for x in affected_items ])
+        elif action == 'remove':
+            affected_items = items
+            self._state.pending_related_updates[instance][field_name] = current_items.difference([ hasattr(x, '_get_pk_val') and x._get_pk_val() or x for x in affected_items ])
+        elif action == 'clear':
+            affected_items = current_items
+            self._state.pending_related_updates[instance][field_name] = set([])
+        else:
+            raise Exception('Invalid action: %s' % action)
+
+        if symmetrical:
+            related_field = instance._meta.get_field(field_name).related.get_accessor_name()
+            related_action = action == 'clear' and 'remove' or action
+            for item in items:
+                if isinstance(item, VersionsModel):
+                    self.stage_related_updates(item, related_field, related_action, [instance], symmetrical=False)
 
     def stage(self, instance):
         self.assert_active()
@@ -112,6 +144,12 @@ class RevisionManager(object):
 
         data = self.serialize(instance)
         self._state.staged_objects[repo][item] = data
+
+    def get_related_object_ids(self, instance, field_name, rev):
+        if instance in self._state.pending_related_updates and field_name in self._state.pending_related_updates[instance]:
+            return self._state.pending_related_updates[instance][field_name]
+        else:
+            return self.version(instance, rev=rev)['related'].get(field_name, [])
 
     def serialize(self, instance):
         return pickle.dumps(self.data(instance))
@@ -135,25 +173,15 @@ class RevisionManager(object):
         except AttributeError:
             name_map = instance._meta.init_name_map()
 
-        related_removals = defaultdict(set)
-        related_additions = defaultdict(set)
-        for action, field, item in self._state.pending_related_updates.get(instance, []):
-            if action == 'add':
-                related_removals[field].discard(item)
-                related_additions[field].add(item)
-            else:
-                related_additions[field].discard(item)
-                related_removals[field].add(item)
-
         for name, data in name_map.items():
             if isinstance(data[0], (related.RelatedObject, related.ManyToManyField)):
-                manager = getattr(instance, name)
-                if hasattr(manager, 'get_unfiltered_query_set'):
-                    manager = manager.get_unfiltered_query_set()
-                related_items = set([ x['pk'] for x in manager.values('pk') ])
-                related_items = related_items.difference(related_removals.get(name, []))
-                related_items = related_items.union(related_additions.get(name, []))
-                related_data[name] = list(related_items)
+                if instance in self._state.pending_related_updates and name in self._state.pending_related_updates[instance]:
+                    related_data[name] = list(self._state.pending_related_updates[instance][name])
+                else:
+                    manager = getattr(instance, name)
+                    if hasattr(manager, 'get_unfiltered_query_set'):
+                        manager = manager.get_unfiltered_query_set()
+                    related_data[name] = [ x['pk'] for x in manager.values('pk') ]
 
         return {
             'field': field_data,
