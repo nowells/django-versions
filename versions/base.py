@@ -21,8 +21,7 @@ from django.contrib.auth.models import AnonymousUser, User
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models.fields import related
 
-from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents
-from versions.signals import pre_stage
+from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents, VersionsManagementException
 from versions.utils import load_backend
 
 __all__ = ('revision',)
@@ -39,11 +38,16 @@ class RevisionState(threading.local):
         self.reset()
 
     def reset(self):
-        self.objects = defaultdict(dict)
+        self.staged_objects = defaultdict(dict)
+        self.pending_objects = set([])
+        self.pending_related_updates = defaultdict(dict)
         self.user = None
         self.message = ""
         self.depth = 0
         self.is_invalid = False
+        self.is_finishing = False
+        self.debug = False
+        self.latest_transactions = {}
 
 class RevisionManager(object):
     __slots__ = ("__weakref__", "_repos", "_state",)
@@ -53,14 +57,20 @@ class RevisionManager(object):
         self._repos = {}
 
     def is_active(self):
-        return self._state.depth > 0
+        return bool(self._state.depth > 0) or self._state.is_finishing
 
     def assert_active(self):
         """Checks for an active revision, throwning an exception if none."""
         if not self.is_active():
-            raise VersionsManagementException("There is no active revision for this thread.")
+            raise VersionsManagementException("There is no active revision transaction for this thread.")
+
+    def latest_transactions(self):
+        return self._state.latest_transactions
+    latest_transactions = property(latest_transactions)
 
     def start(self):
+        if self._state.depth == 0:
+            self._state.reset()
         self._state.depth += 1
 
     def invalidate(self):
@@ -73,40 +83,81 @@ class RevisionManager(object):
     def finish(self):
         self.assert_active()
         self._state.depth -= 1
-        revisions = {}
         # Handle end of revision conditions here.
         if self._state.depth == 0:
-            objects = self._state.objects
+            transactions = {}
+            self._state.is_finishing = True
             try:
-                if objects and not self.is_invalid():
-                    for repo, items in objects.items():
-                        revisions[repo] = self[repo].commit(items)
+                if not self.is_invalid() and (self._state.pending_objects or self._state.staged_objects):
+                    while self._state.pending_objects:
+                        item = self._state.pending_objects.pop()
+                        self.stage(item)
+
+                    for repo, items in self._state.staged_objects.items():
+                        transactions[repo] = self[repo].commit(items)
             finally:
                 self._state.reset()
-        return revisions
 
-    def stage(self, instance, related_updates=None):
+            self._state.latest_transactions = transactions
+
+    def stage_related_updates(self, instance, field_name, action, items=None, symmetrical=True):
+        from versions.models import VersionsModel
+
+        self.assert_active()
+
+        self._state.pending_objects.add(instance)
+
+        if items is None:
+            items = []
+
+        if field_name not in self._state.pending_related_updates[instance]:
+            self._state.pending_related_updates[instance][field_name] = set(self.data(instance)['related'][field_name])
+        current_items = self._state.pending_related_updates[instance][field_name]
+
+        affected_items = []
+        if action == 'add':
+            affected_items = items
+            self._state.pending_related_updates[instance][field_name] = current_items.union([ hasattr(x, '_get_pk_val') and x._get_pk_val() or x for x in affected_items ])
+        elif action == 'remove':
+            affected_items = items
+            self._state.pending_related_updates[instance][field_name] = current_items.difference([ hasattr(x, '_get_pk_val') and x._get_pk_val() or x for x in affected_items ])
+        elif action == 'clear':
+            affected_items = current_items
+            self._state.pending_related_updates[instance][field_name] = set([])
+        else:
+            raise Exception('Invalid action: %s' % action)
+
+        if symmetrical:
+            related_field = instance._meta.get_field(field_name).related.get_accessor_name()
+            related_action = action == 'clear' and 'remove' or action
+            for item in items:
+                if isinstance(item, VersionsModel):
+                    self.stage_related_updates(item, related_field, related_action, [instance], symmetrical=False)
+
+    def stage(self, instance):
+        self.assert_active()
+
         repo = self.repository_path(instance.__class__, instance._get_pk_val())
         item = self.item_path(instance.__class__, instance._get_pk_val())
 
-        # Fire off our pre_stage signal.
-        pre_stage.send(sender=instance.__class__, instance=instance)
+        self._state.pending_objects.discard(instance)
 
-        data = self.serialize(instance, related_updates=related_updates)
-        revision = None
-        if self.is_active():
-            self._state.objects[repo][item] = data
+        data = self.serialize(instance)
+        self._state.staged_objects[repo][item] = data
+
+    def get_related_object_ids(self, instance, field_name, rev):
+        if instance in self._state.pending_related_updates and field_name in self._state.pending_related_updates[instance]:
+            return self._state.pending_related_updates[instance][field_name]
         else:
-            revision = self[repo].commit({item: data})
-        return revision
+            return self.version(instance, rev=rev)['related'].get(field_name, [])
 
-    def serialize(self, instance, related_updates=None):
-        return pickle.dumps(self.data(instance, related_updates=related_updates))
+    def serialize(self, instance):
+        return pickle.dumps(self.data(instance))
 
     def deserialize(self, data):
         return pickle.loads(data)
 
-    def data(self, instance, related_updates=None):
+    def data(self, instance):
         field_names = [ x.name for x in instance._meta.fields if not x.primary_key ]
 
         if instance._versions_options.include:
@@ -122,17 +173,15 @@ class RevisionManager(object):
         except AttributeError:
             name_map = instance._meta.init_name_map()
 
-        # TODO: centralize this setup into an object based approach.
-        related_updates = related_updates or {}
         for name, data in name_map.items():
             if isinstance(data[0], (related.RelatedObject, related.ManyToManyField)):
-                manager = getattr(instance, name)
-                if hasattr(manager, 'get_unfiltered_query_set'):
-                    manager = manager.get_unfiltered_query_set()
-                related_items = set([ x['pk'] for x in manager.values('pk') ])
-                related_items = related_items.difference([ x.pk for x in related_updates.get('removed', {}).get(name, []) ])
-                related_items = related_items.union([ x.pk for x in related_updates.get('added', {}).get(name, []) ])
-                related_data[name] = list(related_items)
+                if instance in self._state.pending_related_updates and name in self._state.pending_related_updates[instance]:
+                    related_data[name] = list(self._state.pending_related_updates[instance][name])
+                else:
+                    manager = getattr(instance, name)
+                    if hasattr(manager, 'get_unfiltered_query_set'):
+                        manager = manager.get_unfiltered_query_set()
+                    related_data[name] = [ x['pk'] for x in manager.values('pk') ]
 
         return {
             'field': field_data,
