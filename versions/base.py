@@ -107,9 +107,6 @@ class RevisionManager(object):
 
         self._state.pending_objects.add(instance)
 
-        if items is None:
-            items = []
-
         if field_name not in self._state.pending_related_updates[instance]:
             self._state.pending_related_updates[instance][field_name] = set(self.data(instance)['related'][field_name])
         current_items = self._state.pending_related_updates[instance][field_name]
@@ -127,12 +124,15 @@ class RevisionManager(object):
         else:
             raise Exception('Invalid action: %s' % action)
 
-        if symmetrical:
-            related_field = instance._meta.get_field(field_name).related.get_accessor_name()
+        if symmetrical and affected_items:
+            field = instance._meta.get_field(field_name)
+            related_field_name = field.related.get_accessor_name()
             related_action = action == 'clear' and 'remove' or action
-            for item in items:
-                if isinstance(item, VersionsModel):
-                    self.stage_related_updates(item, related_field, related_action, [instance], symmetrical=False)
+            if issubclass(field.rel.to, VersionsModel):
+                for item in affected_items:
+                    if isinstance(item, int):
+                        item = field.rel.to.objects.get(pk=item)
+                    self.stage_related_updates(item, related_field_name, related_action, [instance], symmetrical=False)
 
     def stage(self, instance):
         self.assert_active()
