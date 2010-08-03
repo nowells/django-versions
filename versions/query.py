@@ -32,6 +32,7 @@ def setup_versioned_models(sender, **kargs):
                 setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
             elif isinstance(field, related.ManyToManyField):
                 setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
+                setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
 
         # Clean up after ourselves so that no previously initialized field caches are invalid.
         for cache_name in ('_related_many_to_many_cache', '_name_map', '_related_objects_cache', '_m2m_cache', '_field_cache',):
