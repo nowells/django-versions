@@ -1,6 +1,11 @@
 from django.db import models
 from versions.models import VersionsModel, VersionsOptions
 
+class Venue(VersionsModel):
+    name = models.CharField(max_length=50)
+    artists = models.ManyToManyField('tests.Artist', blank=True, related_name='venues')
+    recent_artists = models.ManyToManyField('tests.Artist', blank=True, related_name='recent_venues')
+
 class Artist(VersionsModel):
     name = models.CharField(max_length=50)
     fans = models.ManyToManyField('auth.User', blank=True, related_name='favorite_artists')
@@ -37,7 +42,3 @@ class Lyrics(VersionsModel):
 
     def __unicode__(self):
         return self.text
-
-class Venue(VersionsModel):
-    name = models.CharField(max_length=50)
-    artists = models.ManyToManyField(Artist, blank=True, related_name='venues')

@@ -27,12 +27,20 @@ def setup_versioned_models(sender, **kargs):
 
         for name, data in name_map.items():
             field = data[0]
-            if isinstance(field, related.ForeignKey):
-                setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
-                setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
-            elif isinstance(field, related.ManyToManyField):
-                setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
-                setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
+            if isinstance(field, (related.ForeignKey, related.ManyToManyField)):
+                if isinstance(field, related.ForeignKey):
+                    setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
+                else:
+                    setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
+
+                if isinstance(field.rel.to, basestring):
+                    def resolve_related_class(field, model, cls):
+                        field.rel.to = model
+                        field.do_related_class(model, cls)
+                        setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
+                    related.add_lazy_relation(sender, field, field.rel.to, resolve_related_class)
+                else:
+                    setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
 
         # Clean up after ourselves so that no previously initialized field caches are invalid.
         for cache_name in ('_related_many_to_many_cache', '_name_map', '_related_objects_cache', '_m2m_cache', '_field_cache',):
