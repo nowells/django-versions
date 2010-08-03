@@ -6,6 +6,17 @@ class Venue(VersionsModel):
     artists = models.ManyToManyField('tests.Artist', blank=True, related_name='venues')
     recent_artists = models.ManyToManyField('tests.Artist', blank=True, related_name='recent_venues')
 
+class Album(VersionsModel):
+    artist = models.ForeignKey('tests.Artist', related_name='albums')
+    title = models.CharField(max_length=50)
+    time_modified = models.DateTimeField(auto_now=True)
+
+    class Versions(VersionsOptions):
+        include = ['title']
+
+    def __unicode__(self):
+        return self.title
+
 class Artist(VersionsModel):
     name = models.CharField(max_length=50)
     fans = models.ManyToManyField('auth.User', blank=True, related_name='favorite_artists')
@@ -16,17 +27,6 @@ class Artist(VersionsModel):
 
     def __unicode__(self):
         return self.name
-
-class Album(VersionsModel):
-    artist = models.ForeignKey(Artist, related_name='albums')
-    title = models.CharField(max_length=50)
-    time_modified = models.DateTimeField(auto_now=True)
-
-    class Versions(VersionsOptions):
-        include = ['title']
-
-    def __unicode__(self):
-        return self.title
 
 class Song(VersionsModel):
     album = models.ForeignKey(Album, related_name='songs')
