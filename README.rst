@@ -30,10 +30,10 @@ If your are installing from source, you just need to run the following command f
 
 If you want to install the package without checking out the source you should run::
 
-    pip install http://github.com/nowells/django-versions/tarball/v0.3.0
+    pip install http://github.com/nowells/django-versions/tarball/v0.4.0
 
     # OR if you don't have pip installed (you should definitely check out pip)
-    easy_install http://github.com/nowells/django-versions/tarball/v0.3.0
+    easy_install http://github.com/nowells/django-versions/tarball/v0.4.0
 
 For the time being, we need to patch Django to allow us to gain access to the related model from Manager classes. There is a patch included at the root of the source tree ``django.patch`` that includes the required changes. To patch django, go to the root of your checkout of django 1.1.X and run::
 
