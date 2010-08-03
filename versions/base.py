@@ -131,7 +131,12 @@ class RevisionManager(object):
             if issubclass(field.rel.to, VersionsModel):
                 for item in affected_items:
                     if isinstance(item, int):
-                        item = field.rel.to.objects.get(pk=item)
+                        try:
+                            item = field.rel.to.objects.get(pk=item)
+                        except field.rel.to.DoesNotExist:
+                            # TODO: how do we handle this case? We might need to pass around the revision data to the stage_related_objects function to handle
+                            # _versions_status != PUBLISHED cases. Write a test for this case.
+                            continue
                     self.stage_related_updates(item, related_field_name, related_action, [instance], symmetrical=False)
 
     def stage(self, instance):
