@@ -20,7 +20,7 @@ class VersionsManager(models.Manager):
     def diff(self, instance, rev0, rev1=None):
         return revision.diff(instance, rev0, rev1)
 
-    def get_query_set(self, rev=None, include_staged_delete=False):
+    def get_query_set(self, rev=None, include_staged_delete=False, bypass_filter=False):
         if self.related_model_instance is not None:
             rev = rev and rev or self.related_model_instance._versions_revision
 
@@ -28,7 +28,7 @@ class VersionsManager(models.Manager):
         qs = VersionsQuerySet(model=self.model, query=query, rev=rev)
 
         # If we are looking up the current state of the model instances, filter out deleted models. The Versions system will take care of filtering out the deleted revised objects.
-        if rev is None:
+        if rev is None and not bypass_filter:
             qs = qs.filter(_versions_status=VERSIONS_STATUS_PUBLISHED)
 
         return qs
