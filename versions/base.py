@@ -130,7 +130,7 @@ class RevisionManager(object):
             related_action = action == 'clear' and 'remove' or action
             if issubclass(field.rel.to, VersionsModel):
                 for item in affected_items:
-                    if isinstance(item, int):
+                    if isinstance(item, (int, long)):
                         try:
                             item = field.rel.to.objects.get(pk=item)
                         except field.rel.to.DoesNotExist:
