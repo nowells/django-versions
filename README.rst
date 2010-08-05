@@ -1,14 +1,10 @@
 django-versions
 ###############
 
-ALPHA
-=====
-This project's development is still in **ALPHA**. There are many features not yet implemented that are in the queue.
-
 Overview
 ========
 
-``django-versions`` allows you to version the data stored in django models seamlessly. To get started all you need to do is to set ``VERSIONS_REPOSITORY_ROOT`` variable in your settings to specify where you would like your versioned data to be stored, then just subclass your Model from ``VersionsModel`` and start saving data::
+``django-versions`` allows you to version the data stored in django models seamlessly. To get started all you need to do is to set ``VERSIONS_REPOSITORIES`` variable in your settings and configure the repositories you would like to use, then just subclass your Model from ``VersionsModel`` and start saving data::
 
     from django.db import models
     from versions.models import VersionsModel
@@ -23,7 +19,7 @@ Dependencies
 ------------
 
 * Mercurial >= 1.5.2
-* Django == 1.1
+* Django == 1.1.X
 
 Installing django-versions
 --------------------------
@@ -34,23 +30,46 @@ If your are installing from source, you just need to run the following command f
 
 If you want to install the package without checking out the source you should run::
 
-    pip install http://github.com/nowells/django-versions/tarball/v0.1.0
+    pip install http://github.com/nowells/django-versions/tarball/v0.4.0
 
     # OR if you don't have pip installed (you should definitely check out pip)
-    easy_install http://github.com/nowells/django-versions/tarball/v0.1.0
+    easy_install http://github.com/nowells/django-versions/tarball/v0.4.0
 
 For the time being, we need to patch Django to allow us to gain access to the related model from Manager classes. There is a patch included at the root of the source tree ``django.patch`` that includes the required changes. To patch django, go to the root of your checkout of django 1.1.X and run::
 
     patch -p0 < /path/to/django-versions/django.patch
 
-Add ``VERSIONS_REPOSITORY_ROOT`` to your settings file, pointing to the location where you would like ``django-versions`` to create and store your model history::
+Add ``VERSIONS_REPOSITORIES`` to your settings file, pointing to the location where you would like ``django-versions`` to create and store your model history::
 
-    VERSIONS_REPOSITORY_ROOT = '/path/to/my/projects/model/history'
+    VERSIONS_REPOSITORIES = {
+         'default': {
+              'backend': 'versions.backends.hg',
+              'local': '/path/to/my/projects/model/history',
+              }
+         }
 
-Optionally, install ``VersionsMiddleware`` to allow for grouping all model changes within a request into one commit::
+Enabling Version Management
+...........................
+
+Install the ``VersionsMiddleware``::
 
     MIDDLEWARE_CLASSES = (
         ...
         'versions.middleware.VersionsMiddleware',
         ...
         )
+
+Or handle enabling editing of Versioned models manually::
+
+    from versions.base import revision
+
+    @revision.commit_on_success
+    def my_editing_function(request):
+        m = MyModel.objects.get(pk=1)
+        m.save()
+
+
+    def my_other_editing_function(request):
+        with revision:
+            m = MyModel.objects.get(pk=1)
+            m.save()

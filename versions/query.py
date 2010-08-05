@@ -1,14 +1,55 @@
 from django.db import connection
 from django.db.models import query
 from django.db.models import sql
+from django.db.models.fields import related
+from django.db.models.signals import class_prepared
 from django.utils import tree
 
+from versions.base import revision
 from versions.constants import VERSIONS_STATUS_DELETED, VERSIONS_STATUS_STAGED_DELETE
 from versions.exceptions import VersionDoesNotExist, VersionsException
-from versions.repo import versions
+from versions.fields import VersionsReverseSingleRelatedObjectDescriptor, VersionsForeignRelatedObjectsDescriptor, VersionsReverseManyRelatedObjectsDescriptor
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
+
+def setup_versioned_models(sender, **kargs):
+    from versions.models import VersionsModel
+    if issubclass(sender, VersionsModel):
+        # Register this model with the version registry.
+        qn = connection.ops.quote_name
+        _versions_table_mappings[qn(sender._meta.db_table)] = sender
+
+        try:
+            name_map = sender._meta._name_map
+        except AttributeError:
+            name_map = sender._meta.init_name_map()
+
+        for name, data in name_map.items():
+            field = data[0]
+            if isinstance(field, (related.ForeignKey, related.ManyToManyField)):
+                if isinstance(field, related.ForeignKey):
+                    setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
+                else:
+                    setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
+
+                if isinstance(field.rel.to, basestring):
+                    def resolve_related_class(field, model, cls):
+                        field.rel.to = model
+                        field.do_related_class(model, cls)
+                        setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
+                    related.add_lazy_relation(sender, field, field.rel.to, resolve_related_class)
+                else:
+                    setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
+
+        # Clean up after ourselves so that no previously initialized field caches are invalid.
+        for cache_name in ('_related_many_to_many_cache', '_name_map', '_related_objects_cache', '_m2m_cache', '_field_cache',):
+            try:
+                delattr(sender._meta, cache_name)
+            except:
+                pass
+
+class_prepared.connect(setup_versioned_models)
 
 def _remove_versions_status_filter(node):
     for i, child in enumerate(node.children):
@@ -20,7 +61,7 @@ def _remove_versions_status_filter(node):
 
 class VersionsQuery(sql.Query):
     def __init__(self, *args, **kwargs):
-        self._revision = kwargs.pop('revision', None)
+        self._revision = kwargs.pop('rev', None)
         self._include_staged_delete = kwargs.pop('include_staged_delete', False)
         super(VersionsQuery, self).__init__(*args, **kwargs)
 
@@ -75,6 +116,7 @@ class VersionsQuery(sql.Query):
 
                 # Track whether this row existed at the time of the revision.
                 exists = True
+                row_data = {}
                 for field in fields.values():
                     try:
                         # TODO: how do we handle select_related queries?
@@ -84,7 +126,10 @@ class VersionsQuery(sql.Query):
                         #       however, what do we do if the query filtered on the related object?
                         #    3) What if this object is only being included because the database value of the selected object at an old revision matched,
                         #       but the existing revision of that object does not?
-                        rev_data = versions._version(field['model'], row[field['pk']], rev=self._revision)
+                        key = (field['model'], row[field['pk']],)
+                        if key not in row_data:
+                            row_data[key] = revision._version(field['model'], row[field['pk']], rev=self._revision)
+                        rev_data = row_data[key]
                         field_data = rev_data.get('field', {})
                         related_data = rev_data.get('related', {})
 
@@ -109,12 +154,8 @@ class VersionsQuery(sql.Query):
 
 class VersionsQuerySet(query.QuerySet):
     def __init__(self, *args, **kwargs):
-        self._revision = kwargs.pop('revision', None)
+        self._revision = kwargs.pop('rev', None)
         super(VersionsQuerySet, self).__init__(*args, **kwargs)
-
-        # Register this model with the version registry.
-        qn = connection.ops.quote_name
-        _versions_table_mappings[qn(self.model._meta.db_table)] = self.model
 
     def _clone(self, *args, **kwargs):
         obj = super(VersionsQuerySet, self)._clone(*args, **kwargs)
