@@ -39,35 +39,49 @@ class VersionsModel(models.Model):
 
     # Used to store the revision of the model.
     _versions_revision = None
-    _versions_staged_changes = None
-    _versions_related_updates = None
 
     def __init__(self, *args, **kwargs):
         self._versions_revision = None
-        self._versions_related_updates = {}
-        self._versions_staged_changes = {}
         super(VersionsModel, self).__init__(*args, **kwargs)
+
+    def __save_base(self, *args, **kwargs):
+        is_new = self._get_pk_val() is None
+        super(VersionsModel, self).save()
+
+        if is_new:
+            try:
+                name_map = self._meta._name_map
+            except AttributeError:
+                name_map = self._meta.init_name_map()
+
+            for name, data in name_map.items():
+                if isinstance(data[0], related.ForeignKey):
+                    related_field = self._meta.get_field(name).related.get_accessor_name()
+                    obj = getattr(self, name, None)
+                    if obj:
+                        revision.stage_related_updates(obj, related_field, 'add', [self], symmetrical=False)
 
     def save(self, *args, **kwargs):
         if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
-            super(VersionsModel, self).save(*args, **kwargs)
-        return revision.stage(self)
+            self.__save_base(*args, **kwargs)
+        revision.stage(self)
 
     def delete(self, *args, **kwargs):
         if self._versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
             self._versions_status = VERSIONS_STATUS_STAGED_DELETE
         else:
             self._versions_status = VERSIONS_STATUS_DELETED
-        return self.save()
+        self.save()
 
     def commit(self):
         if self._versions_status == VERSIONS_STATUS_STAGED_DELETE:
             self._versions_status = VERSIONS_STATUS_DELETED
-        else:
+        elif self._versions_status == VERSIONS_STATUS_STAGED_EDITS:
             self._versions_status = VERSIONS_STATUS_PUBLISHED
 
-        # We don't want to call our save method, because we want to stage the state of this model until we set the state of all unpublihsed manytomany edits.
-        super(VersionsModel, self).save()
+        # We don't want to call our main save method, because we want to delay
+        # staging the state of this model until we set the state of all unpublihsed manytomany edits.
+        self.__save_base()
 
         if self._versions_revision is None:
             data = revision.data(self)
@@ -81,10 +95,13 @@ class VersionsModel(models.Model):
                 pass
             else:
                 if isinstance(field, related.ManyToManyField):
-                    setattr(self, name, self._versions_staged_changes.get(name, ids))
+                    if self in revision._state.pending_related_updates and name in revision._state.pending_related_updates[self]:
+                        setattr(self, name, revision._state.pending_related_updates[self][name])
+                    else:
+                        setattr(self, name, ids)
 
-        return revision.stage(self)
+        revision.stage(self)
 
     def stage(self):
         self._versions_status = VERSIONS_STATUS_STAGED_EDITS
-        return self.save()
+        self.save()

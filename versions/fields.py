@@ -2,7 +2,6 @@ import django
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.db.models.fields import related
-from django.db.models import signals
 
 from versions.base import revision
 from versions.constants import VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_PUBLISHED
@@ -16,7 +15,14 @@ class VersionsReverseSingleRelatedObjectDescriptor(related.ReverseSingleRelatedO
 
         result = super(VersionsReverseSingleRelatedObjectDescriptor, self).__set__(instance, value)
         if old_value != value:
-            instance._versions_related_updates[self.field.name] = [old_value, value]
+            related_field = instance._meta.get_field(self.field.name).related.get_accessor_name()
+
+            # If this is a new instance, the save method handles updating related objects once
+            # the object has been saved.
+            if instance._get_pk_val() is not None:
+                if old_value:
+                    revision.stage_related_updates(old_value, related_field, 'remove', [instance], symmetrical=False)
+                revision.stage_related_updates(value, related_field, 'add', [instance], symmetrical=False)
         return result
 
 class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescriptor):
@@ -59,36 +65,22 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
             RelatedManager = related.create_many_related_manager(superclass, self.field.rel)
 
         class VersionsRelatedManager(RelatedManager):
-            def __get_staged_changes(self):
-                return self.related_model_instance._versions_staged_changes.get(self.related_model_attname, revision.data(self.related_model_instance)['related'][self.related_model_attname])
-
             def add(self, *args, **kwargs):
-                if self.related_model_instance._versions_status == VERSIONS_STATUS_STAGED_EDITS:
-                    changes = self.__get_staged_changes() + [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
-                    self.related_model_instance._versions_staged_changes[self.related_model_attname] = changes
-                else:
+                revision.stage_related_updates(self.related_model_instance, self.related_model_attname, 'add', args)
+                if self.related_model_instance._versions_status == VERSIONS_STATUS_PUBLISHED:
                     super(VersionsRelatedManager, self).add(*args, **kwargs)
-                revision.stage(self.related_model_instance)
 
             def remove(self, *args, **kwargs):
-                if self.related_model_instance._versions_status == VERSIONS_STATUS_STAGED_EDITS:
-                    changes = self.__get_staged_changes()
-                    removed = [ (hasattr(x, 'pk') and x.pk or x) for x in args ]
-                    self.related_model_instance._versions_staged_changes[self.related_model_attname] = [ x for x in changes if x not in removed ]
-                else:
+                revision.stage_related_updates(self.related_model_instance, self.related_model_attname, 'remove', args)
+                if self.related_model_instance._versions_status == VERSIONS_STATUS_PUBLISHED:
                     super(VersionsRelatedManager, self).remove(*args, **kwargs)
-                revision.stage(self.related_model_instance)
 
             def clear(self, *args, **kwargs):
-                if self.related_model_instance._versions_status == VERSIONS_STATUS_STAGED_EDITS:
-                    self.related_model_instance._versions_staged_changes[self.related_model_attname] = []
-                else:
+                revision.stage_related_updates(self.related_model_instance, self.related_model_attname, 'clear')
+                if self.related_model_instance._versions_status == VERSIONS_STATUS_PUBLISHED:
                     super(VersionsRelatedManager, self).clear(*args, **kwargs)
-                revision.stage(self.related_model_instance)
 
             def get_unfiltered_query_set(self):
-                if self.related_model_instance._versions_staged_changes.has_key(self.related_model_attname):
-                    self.core_filters = {'pk__in': self.related_model_instance._versions_staged_changes[self.related_model_attname]}
                 return super(VersionsRelatedManager, self).get_query_set()
 
             def get_query_set(self, *args, **kwargs):
@@ -97,8 +89,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                     rev = rev and rev or self.related_model_instance._versions_revision
 
                 if rev is not None:
-                    data = revision.version(self.related_model_instance, rev=rev)
-                    self.core_filters = {'pk__in': data['related'].get(self.related_model_attname)}
+                    self.core_filters = {'pk__in': revision.get_related_object_ids(self.related_model_instance, self.related_model_attname, rev)}
 
                 return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
 

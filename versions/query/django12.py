@@ -3,7 +3,7 @@ from django.db import connection
 from django.db.models import query
 from django.db.models import sql
 from django.db.models.fields import related
-from django.db.models import signals
+from django.db.models.signals import class_prepared
 from django.utils import tree
 
 from versions.base import revision
@@ -13,19 +13,6 @@ from versions.fields import VersionsReverseSingleRelatedObjectDescriptor, Versio
 
 # Registry of table names to Versioned models
 _versions_table_mappings = {}
-
-def stage_related_models(sender, instance, created, **kwargs):
-    """
-    This signal handler is used to alert objects to changes in the ForeignKey of related objects.
-    We capture both the creation of a new ForeignKey relationship, as well as the removal or changing
-    of an existing ForeignKey relationship.
-    """
-    for field, models in instance._versions_related_updates.items():
-        related_field = instance._meta.get_field(field).related.get_accessor_name()
-        old_related_model, new_related_model = models
-        if old_related_model is not None:
-            revision.stage(old_related_model, related_updates={'removed': {related_field: [instance]}})
-        revision.stage(new_related_model, related_updates={'added': {related_field: [instance]}})
 
 def setup_versioned_models(sender, **kargs):
     from versions.models import VersionsModel
@@ -41,21 +28,29 @@ def setup_versioned_models(sender, **kargs):
 
         for name, data in name_map.items():
             field = data[0]
-            if isinstance(field, related.ForeignKey):
-                setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
-                setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
-                signals.post_save.connect(stage_related_models, sender=sender, dispatch_uid='versions_foreignkey_related_object_update')
-            elif isinstance(field, related.ManyToManyField):
-                setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
+            if isinstance(field, (related.ForeignKey, related.ManyToManyField)):
+                if isinstance(field, related.ForeignKey):
+                    setattr(sender, name, VersionsReverseSingleRelatedObjectDescriptor(field))
+                else:
+                    setattr(sender, name, VersionsReverseManyRelatedObjectsDescriptor(field))
+
+                if isinstance(field.rel.to, basestring):
+                    def resolve_related_class(field, model, cls):
+                        field.rel.to = model
+                        field.do_related_class(model, cls)
+                        setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
+                    related.add_lazy_relation(sender, field, field.rel.to, resolve_related_class)
+                else:
+                    setattr(field.rel.to, field.related.get_accessor_name(), VersionsForeignRelatedObjectsDescriptor(field.related))
 
         # Clean up after ourselves so that no previously initialized field caches are invalid.
-        for cache_name in ('_related_many_to_many_cache', '_name_name', '_related_objects_cache', '_m2m_cache', '_field_cache',):
+        for cache_name in ('_related_many_to_many_cache', '_name_map', '_related_objects_cache', '_m2m_cache', '_field_cache',):
             try:
                 delattr(sender._meta, cache_name)
             except:
                 pass
 
-signals.class_prepared.connect(setup_versioned_models)
+class_prepared.connect(setup_versioned_models)
 
 def _remove_versions_status_filter(node):
     for i, child in enumerate(node.children):
@@ -123,6 +118,7 @@ class VersionsQuery(sql.Query):
 
                 # Track whether this row existed at the time of the revision.
                 exists = True
+                row_data = {}
                 for field in fields.values():
                     try:
                         # TODO: how do we handle select_related queries?
@@ -132,7 +128,10 @@ class VersionsQuery(sql.Query):
                         #       however, what do we do if the query filtered on the related object?
                         #    3) What if this object is only being included because the database value of the selected object at an old revision matched,
                         #       but the existing revision of that object does not?
-                        rev_data = revision._version(field['model'], row[field['pk']], rev=self._revision)
+                        key = (field['model'], row[field['pk']],)
+                        if key not in row_data:
+                            row_data[key] = revision._version(field['model'], row[field['pk']], rev=self._revision)
+                        rev_data = row_data[key]
                         field_data = rev_data.get('field', {})
                         related_data = rev_data.get('related', {})
 
