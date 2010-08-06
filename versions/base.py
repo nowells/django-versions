@@ -22,6 +22,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db.models.fields import related
 
 from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents, VersionsManagementException
+from versions import signals
 from versions.utils import load_backend
 
 __all__ = ('revision',)
@@ -144,6 +145,8 @@ class RevisionManager(object):
 
         data = self.serialize(instance)
         self._state.staged_objects[repo][item] = data
+
+        signals.post_stage.send(sender=instance.__class__, instance=instance)
 
     def get_related_object_ids(self, instance, field_name, rev):
         if instance in self._state.pending_related_updates and field_name in self._state.pending_related_updates[instance]:

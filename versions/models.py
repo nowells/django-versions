@@ -44,7 +44,7 @@ class VersionsModel(models.Model):
         self._versions_revision = None
         super(VersionsModel, self).__init__(*args, **kwargs)
 
-    def __save_base(self, *args, **kwargs):
+    def _save_base(self, *args, **kwargs):
         is_new = self._get_pk_val() is None
         super(VersionsModel, self).save()
 
@@ -63,7 +63,7 @@ class VersionsModel(models.Model):
 
     def save(self, *args, **kwargs):
         if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
-            self.__save_base(*args, **kwargs)
+            self._save_base(*args, **kwargs)
         revision.stage(self)
 
     def delete(self, *args, **kwargs):
@@ -81,7 +81,7 @@ class VersionsModel(models.Model):
 
         # We don't want to call our main save method, because we want to delay
         # staging the state of this model until we set the state of all unpublihsed manytomany edits.
-        self.__save_base()
+        self._save_base()
 
         if self._versions_revision is None:
             data = revision.data(self)
