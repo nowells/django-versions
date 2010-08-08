@@ -69,8 +69,8 @@ class RevisionManager(object):
         return self._state.latest_transactions
     latest_transactions = property(latest_transactions)
 
-    def start(self):
-        if self._state.depth == 0:
+    def start(self, reset=False):
+        if reset or self._state.depth == 0:
             self._state.reset()
         self._state.depth += 1
 
