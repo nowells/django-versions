@@ -94,7 +94,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
             model=rel_model,
             core_filters={'%s__pk' % self.field.related_query_name(): instance._get_pk_val()},
             instance=instance,
-            symmetrical=self.field.rel.symmetrical,
+            symmetrical=(self.field.rel.symmetrical and isinstance(instance, rel_model)),
             join_table=qn(self.field.m2m_db_table()),
             source_col_name=qn(self.field.m2m_column_name()),
             target_col_name=qn(self.field.m2m_reverse_name())
