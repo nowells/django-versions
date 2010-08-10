@@ -415,48 +415,48 @@ Remember loves stronger remember love walks tall
 
         second_revision = revision.latest_transactions['default']
 
-        self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [])
-        self.assertEquals(list(Venue.objects.version(second_revision).get(pk=1).artists.all()), [queen])
+        self.assertEquals(list(Venue.objects.get(pk=venue.pk).artists.all()), [])
+        self.assertEquals(list(Venue.objects.version(second_revision).get(pk=venue.pk).artists.all()), [queen])
 
-        self.assertEquals(list(Artist.objects.get(pk=1).venues.all()), [])
-        self.assertEquals(list(Artist.objects.version(second_revision).get(pk=1).venues.all()), [venue])
+        self.assertEquals(list(Artist.objects.get(pk=queen.pk).venues.all()), [])
+        self.assertEquals(list(Artist.objects.version(second_revision).get(pk=queen.pk).venues.all()), [venue])
 
         with revision:
-            venue = Venue.objects.version(second_revision).get(pk=1)
+            venue = Venue.objects.version(second_revision).get(pk=venue.pk)
             venue.commit()
 
         third_revision = revision.latest_transactions['default']
 
-        self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [queen])
-        self.assertEquals(list(Venue.objects.version(third_revision).get(pk=1).artists.all()), [queen])
+        self.assertEquals(list(Venue.objects.get(pk=venue.pk).artists.all()), [queen])
+        self.assertEquals(list(Venue.objects.version(third_revision).get(pk=venue.pk).artists.all()), [queen])
 
-        self.assertEquals(list(Artist.objects.get(pk=1).venues.all()), [venue])
-        self.assertEquals(list(Artist.objects.version(third_revision).get(pk=1).venues.all()), [venue])
+        self.assertEquals(list(Artist.objects.get(pk=queen.pk).venues.all()), [venue])
+        self.assertEquals(list(Artist.objects.version(third_revision).get(pk=queen.pk).venues.all()), [venue])
 
         with revision:
-            venue = Venue.objects.version(third_revision).get(pk=1)
+            venue = Venue.objects.version(third_revision).get(pk=venue.pk)
             venue.stage()
             venue.artists.clear()
 
         fourth_revision = revision.latest_transactions['default']
 
-        self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [queen])
-        self.assertEquals(list(Venue.objects.version(fourth_revision).get(pk=1).artists.all()), [])
+        self.assertEquals(list(Venue.objects.get(pk=venue.pk).artists.all()), [queen])
+        self.assertEquals(list(Venue.objects.version(fourth_revision).get(pk=venue.pk).artists.all()), [])
 
-        self.assertEquals(list(Artist.objects.get(pk=1).venues.all()), [venue])
-        self.assertEquals(list(Artist.objects.version(fourth_revision).get(pk=1).venues.all()), [])
+        self.assertEquals(list(Artist.objects.get(pk=queen.pk).venues.all()), [venue])
+        self.assertEquals(list(Artist.objects.version(fourth_revision).get(pk=queen.pk).venues.all()), [])
 
         with revision:
-            venue = Venue.objects.version(fourth_revision).get(pk=1)
+            venue = Venue.objects.version(fourth_revision).get(pk=venue.pk)
             venue.commit()
 
         fifth_revision = revision.latest_transactions['default']
 
-        self.assertEquals(list(Venue.objects.get(pk=1).artists.all()), [])
-        self.assertEquals(list(Venue.objects.version(fifth_revision).get(pk=1).artists.all()), [])
+        self.assertEquals(list(Venue.objects.get(pk=venue.pk).artists.all()), [])
+        self.assertEquals(list(Venue.objects.version(fifth_revision).get(pk=venue.pk).artists.all()), [])
 
-        self.assertEquals(list(Artist.objects.get(pk=1).venues.all()), [])
-        self.assertEquals(list(Artist.objects.version(fourth_revision).get(pk=1).venues.all()), [])
+        self.assertEquals(list(Artist.objects.get(pk=queen.pk).venues.all()), [])
+        self.assertEquals(list(Artist.objects.version(fourth_revision).get(pk=queen.pk).venues.all()), [])
 
 class VersionsOptionsTestCase(VersionsTestCase):
     def test_field_exclude(self):
