@@ -12,6 +12,10 @@ class Changeset(models.Model):
             return Changeset(user=None, message='', pk=0)
     parent = property(parent)
 
+    def parents(self):
+        return [ self.parent ]
+    parents = property(parents)
+
     def revision(self):
         return str(self.pk)
     revision = property(revision)

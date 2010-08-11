@@ -23,7 +23,7 @@ class Repository(BaseRepository):
         return changeset.pk
 
     def versions(self, path):
-        return Changeset.objects.filter(revisions__path=path)
+        return Changeset.objects.filter(revisions__path=path).order_by('-pk')
 
     def version(self, item, rev=None):
         revision = Revision.objects.filter(path=item)
