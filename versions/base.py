@@ -161,6 +161,7 @@ class RevisionManager(object):
         return pickle.loads(data)
 
     def data(self, instance):
+        from versions.models import VersionsModel
         field_names = [ x.name for x in instance._meta.fields if not x.primary_key ]
 
         if instance._versions_options.include:
@@ -182,9 +183,10 @@ class RevisionManager(object):
                     related_data[name] = sorted(list(self._state.pending_related_updates[instance][name]))
                 else:
                     manager = getattr(instance, name)
-                    if hasattr(manager, 'get_unfiltered_query_set'):
-                        manager = manager.get_unfiltered_query_set()
-                    related_data[name] = sorted([ x['pk'] for x in manager.values('pk') ])
+                    if issubclass(manager.model, VersionsModel):
+                        related_data[name] = sorted([ x['pk'] for x in manager.get_query_set(bypass_filter=True).values('pk') ])
+                    else:
+                        related_data[name] = sorted([ x['pk'] for x in manager.values('pk') ])
 
         return {
             'field': field_data,

@@ -31,15 +31,13 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
 
         manager = super(VersionsForeignRelatedObjectsDescriptor, self).__get__(instance, instance_type)
         class VersionsRelatedManager(manager.__class__):
-            def get_unfiltered_query_set(self):
-                return super(VersionsRelatedManager, self).get_query_set()
-
             def get_query_set(self, *args, **kwargs):
                 rev = kwargs.get('rev', None)
+                bypass_filter = kwargs.get('bypass_filter', False)
                 if self.related_model_instance is not None and hasattr(self.related_model_instance, '_versions_revision'):
                     rev = self.related_model_instance._versions_revision
 
-                if rev is not None:
+                if rev is not None and not bypass_filter:
                     data = revision.version(self.related_model_instance, rev=rev)
                     pks = data['related'].get(self.related_model_attname, [])
                     self.core_filters = {'pk__in': pks}
@@ -76,15 +74,13 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 if self.related_model_instance._versions_status == VERSIONS_STATUS_PUBLISHED:
                     super(VersionsRelatedManager, self).clear(*args, **kwargs)
 
-            def get_unfiltered_query_set(self):
-                return super(VersionsRelatedManager, self).get_query_set()
-
             def get_query_set(self, *args, **kwargs):
                 rev = kwargs.get('rev', None)
+                bypass_filter = kwargs.get('bypass_filter', False)
                 if self.related_model_instance is not None:
                     rev = rev and rev or self.related_model_instance._versions_revision
 
-                if rev is not None:
+                if rev is not None and not bypass_filter:
                     self.core_filters = {'pk__in': revision.get_related_object_ids(self.related_model_instance, self.related_model_attname, rev)}
 
                 return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)

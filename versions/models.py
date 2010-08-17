@@ -95,10 +95,19 @@ class VersionsModel(models.Model):
                 pass
             else:
                 if isinstance(field, related.ManyToManyField):
-                    if self in revision._state.pending_related_updates and name in revision._state.pending_related_updates[self]:
-                        setattr(self, name, revision._state.pending_related_updates[self][name])
+                    related_manager = getattr(self, name)
+                    if issubclass(related_manager.model, VersionsModel):
+                        existing_ids = set(list(related_manager.get_query_set(bypass=True, bypass_filter=True).values_list('pk', flat=True)))
                     else:
-                        setattr(self, name, ids)
+                        existing_ids = set(list(related_manager.values_list('pk', flat=True)))
+
+                    if self in revision._state.pending_related_updates and name in revision._state.pending_related_updates[self]:
+                        updated_ids = revision._state.pending_related_updates[self][name]
+                    else:
+                        updated_ids = ids
+
+                    if existing_ids.symmetric_difference(updated_ids):
+                        setattr(self, name, updated_ids)
 
         revision.stage(self)
 
