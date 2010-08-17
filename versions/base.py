@@ -179,12 +179,12 @@ class RevisionManager(object):
         for name, data in name_map.items():
             if isinstance(data[0], (related.RelatedObject, related.ManyToManyField)):
                 if instance in self._state.pending_related_updates and name in self._state.pending_related_updates[instance]:
-                    related_data[name] = list(self._state.pending_related_updates[instance][name])
+                    related_data[name] = sorted(list(self._state.pending_related_updates[instance][name]))
                 else:
                     manager = getattr(instance, name)
                     if hasattr(manager, 'get_unfiltered_query_set'):
                         manager = manager.get_unfiltered_query_set()
-                    related_data[name] = [ x['pk'] for x in manager.values('pk') ]
+                    related_data[name] = sorted([ x['pk'] for x in manager.values('pk') ])
 
         return {
             'field': field_data,
