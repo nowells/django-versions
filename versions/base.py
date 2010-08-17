@@ -141,12 +141,16 @@ class RevisionManager(object):
         repo = self.repository_path(instance.__class__, instance._get_pk_val())
         item = self.item_path(instance.__class__, instance._get_pk_val())
 
-        self._state.pending_objects.discard(instance)
+        # Only stage the objects once we are completing our
+        if self._state.is_finishing:
+            self._state.pending_objects.discard(instance)
 
-        data = self.serialize(instance)
-        self._state.staged_objects[repo][item] = data
+            data = self.serialize(instance)
+            self._state.staged_objects[repo][item] = data
 
-        signals.post_stage.send(sender=instance.__class__, instance=instance)
+            signals.post_stage.send(sender=instance.__class__, instance=instance)
+        else:
+            self._state.pending_objects.add(instance)
 
     def get_related_object_ids(self, instance, field_name, rev):
         if instance in self._state.pending_related_updates and field_name in self._state.pending_related_updates[instance]:
