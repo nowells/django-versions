@@ -1,6 +1,7 @@
 import logging
 import os
 
+from django.utils.encoding import force_unicode, smart_str
 from versions.backends.base import BaseRepository
 from versions.base import revision, Version
 from versions.exceptions import VersionDoesNotExist
@@ -17,7 +18,7 @@ class Repository(BaseRepository):
             rev = Revision()
             rev.changeset = changeset
             rev.path = path
-            rev.data = data
+            rev.data = force_unicode(data, errors='ignore')
             rev.save()
 
         return changeset.pk
@@ -35,4 +36,4 @@ class Repository(BaseRepository):
         except Revision.DoesNotExist:
             raise VersionDoesNotExist('Version `%s` does not exist for %s' % (rev, item))
 
-        return str(version.data)
+        return smart_str(version.data)
