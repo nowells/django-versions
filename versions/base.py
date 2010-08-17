@@ -42,6 +42,7 @@ class RevisionState(threading.local):
         self.staged_objects = defaultdict(dict)
         self.pending_objects = set([])
         self.pending_related_updates = defaultdict(dict)
+        self.cache = {}
         self.user = None
         self.message = ""
         self.depth = 0
@@ -200,7 +201,13 @@ class RevisionManager(object):
     def _version(self, cls, pk, rev=None):
         repo = self.repository_path(cls, pk)
         item = self.item_path(cls, pk)
-        return self.deserialize(self[repo].version(item, rev=rev))
+        key = (item, rev,)
+        if key in self._state.cache:
+            data = self._state.cache[key]
+        else:
+            data = self[repo].version(item, rev=rev)
+            self._state.cache[key] = data
+        return self.deserialize(data)
 
     def version(self, instance, rev=None):
         return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
