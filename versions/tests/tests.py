@@ -12,6 +12,7 @@ from django.db import transaction
 from django.test import TestCase
 
 from versions.base import revision
+from versions.tests.debugging import stats
 from versions.exceptions import VersionDoesNotExist, VersionsException, VersionsManagementException
 from versions.tests.models import Artist, Album, Song, Lyrics, Venue
 
@@ -25,10 +26,12 @@ class VersionsTestCase(TestCase):
             shutil.rmtree(configs['local'], ignore_errors=True)
 
 class VersionsModelTestCase(VersionsTestCase):
+    @stats.profile
     def test_unmanaged_edits(self):
         queen = Artist(name='Queen')
         self.assertRaises(VersionsManagementException, queen.save)
 
+    @stats.profile
     def test_managed_edits(self):
         with revision:
             queen = Artist(name='Queen')
@@ -58,6 +61,7 @@ class VersionsModelTestCase(VersionsTestCase):
         # Verify that both edits to Queen and Prince were tracked in the same revision.
         self.assertEquals(Artist.objects.versions(prince), Artist.objects.versions(queen))
 
+    @stats.profile
     def test_related_model_edits(self):
         with revision:
             queen = Artist(name='Queen')
@@ -121,6 +125,7 @@ class VersionsModelTestCase(VersionsTestCase):
             # Verify that the third revision of a_kind_of_magic has three songs
             self.assertEquals(len(third_a_kind_of_magic.songs.all()), 3)
 
+    @stats.profile
     def test_revision_retrieval(self):
         with revision:
             prince = Artist(name='Prince')
@@ -152,6 +157,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEquals(third_prince.name, 'Prince')
         self.assertEquals(third_prince._versions_revision, third_revision)
 
+    @stats.profile
     def test_deletion(self):
         with revision:
             queen = Artist(name='Queen')
@@ -187,6 +193,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Album.objects.version(second_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe])
         self.assertEqual(list(Album.objects.version(third_revision).get(pk=a_kind_of_magic.pk).songs.all()), [princes_of_the_universe, friends_will_be_friends])
 
+    @stats.profile
     def test_disabled_functions(self):
         with revision:
             queen = Artist(name='Queen')
@@ -201,6 +208,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertRaises(VersionsException, Artist.objects.version('tip').annotate)
         self.assertRaises(VersionsException, Artist.objects.version('tip').values_list)
 
+    @stats.profile
     def test_many_to_many_fields(self):
         fan1 = User(username='fan1', email='fan1@example.com')
         fan1.save()
@@ -226,7 +234,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2, fan3])
 
-
+    @stats.profile
     def test_many_to_many_versioned_update(self):
         fan1 = User(username='fan1', email='fan1@example.com')
         fan1.save()
@@ -251,6 +259,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Artist.objects.version(first_revision).get(pk=queen.pk).fans.all()), [fan1])
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).fans.all()), [fan2])
 
+    @stats.profile
     def test_reverse_foreign_keys(self):
         with revision:
             queen = Artist(name='Queen')
@@ -277,6 +286,7 @@ class VersionsModelTestCase(VersionsTestCase):
         self.assertEqual(list(Artist.objects.version(second_revision).get(pk=queen.pk).albums.all()), [a_kind_of_magic])
 
 class PublishedModelTestCase(VersionsTestCase):
+    @stats.profile
     def test_staged_edits(self):
         with revision:
             queen = Artist(name='Queen')
@@ -352,6 +362,7 @@ Remember loves stronger remember love walks tall
         # Ensure that the versions contain the correct information.
         self.assertEquals(Lyrics.objects.version(third_revision).get(pk=original_lyrics.pk).text, new_lyrics)
 
+    @stats.profile
     def test_staged_edits_new(self):
         with revision:
             queen = Artist(name='Queen')
@@ -399,6 +410,7 @@ Remember loves stronger remember love walks tall
 
         self.assertEquals(Lyrics.objects.get(pk=original_lyrics.pk), original_lyrics)
 
+    @stats.profile
     def test_staged_edits_many_to_many(self):
         with revision:
             queen = Artist(name='Queen')
@@ -459,6 +471,7 @@ Remember loves stronger remember love walks tall
         self.assertEquals(list(Artist.objects.version(fourth_revision).get(pk=queen.pk).venues.all()), [])
 
 class VersionsOptionsTestCase(VersionsTestCase):
+    @stats.profile
     def test_field_exclude(self):
         with revision:
             queen = Artist(name='Queen')
@@ -467,6 +480,7 @@ class VersionsOptionsTestCase(VersionsTestCase):
         data = revision.data(queen)
         self.assertEqual(data['field'].keys(), ['_versions_status', 'name'])
 
+    @stats.profile
     def test_field_include(self):
         with revision:
             queen = Artist(name='Queen')
@@ -479,6 +493,7 @@ class VersionsOptionsTestCase(VersionsTestCase):
         self.assertEqual(data['field'].keys(), ['_versions_status', 'title'])
 
 class VersionsThreadedTestCase(VersionsTestCase):
+    @stats.profile
     def test_concurrent_edits(self):
         @transaction.commit_on_success
         @revision.commit_on_success
@@ -523,3 +538,18 @@ class VersionsThreadedTestCase(VersionsTestCase):
             # Ensure that the the parent revision is that of the previous revision (we want a linear revision history).
             self.assertEqual(version.parent.revision, previous_version.revision)
             previous_version = version
+
+
+class VersionsPerformanceTestCase(VersionsTestCase):
+    @stats.profile
+    def test_speed(self):
+        return
+        ITERATIONS = 1000
+
+        with revision:
+            for x in xrange(ITERATIONS):
+                artist = Artist.objects.create(name=str(x))
+
+        with revision:
+            for x in xrange(ITERATIONS):
+                artist = Artist.objects.version('tip').get(name=str(x))

@@ -17,6 +17,8 @@ def runtests(*test_args):
     log.addHandler(handler)
     from django.test.simple import run_tests
     failures = run_tests(test_args, verbosity=1, interactive=True)
+    from versions.tests.debugging import stats
+    stats.results()
     sys.exit(failures)
 
 if __name__ == '__main__':
