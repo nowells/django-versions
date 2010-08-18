@@ -21,13 +21,16 @@ class Repository(BaseRepository):
 
     @property
     def _local_repo(self):
-        if not os.path.exists(self.local):
-            try:
-                os.makedirs(self.local)
-                return hg.repository(self._ui, self.local, create=True)
-            except error.RepoError:
-                pass
-        return hg.repository(self._ui, self.local)
+        if self.key not in revision._state.repositories:
+            if not os.path.exists(self.local):
+                try:
+                    os.makedirs(self.local)
+                    revision._state.repositories[self.key] = hg.repository(self._ui, self.local, create=True)
+                except error.RepoError:
+                    pass
+            if self.key not in revision._state.repositories:
+                revision._state.repositories[self.key] = hg.repository(self._ui, self.local)
+        return revision._state.repositories[self.key]
 
     @property
     def _remote_repo(self):

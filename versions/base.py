@@ -39,6 +39,7 @@ class RevisionState(threading.local):
         self.reset()
 
     def reset(self):
+        self.repositories = {}
         self.staged_objects = defaultdict(dict)
         self.pending_objects = set([])
         self.pending_related_updates = defaultdict(dict)
@@ -245,7 +246,7 @@ class RevisionManager(object):
                 if 'backend' not in configs or 'local' not in configs:
                     raise ImproperlyConfigured('You must specify all required conifguration attributes for the `%s` versions backend.' % key)
                 backend = load_backend(configs['backend'])
-                self._repos[key] = backend.Repository(configs['local'], configs.get('remote', None))
+                self._repos[key] = backend.Repository(key, configs['local'], configs.get('remote', None))
         return self._repos[key]
 
     def _set_user(self, val):
