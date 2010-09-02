@@ -46,7 +46,7 @@ class VersionsModel(models.Model):
 
     def _save_base(self, *args, **kwargs):
         is_new = self._get_pk_val() is None
-        super(VersionsModel, self).save()
+        super(VersionsModel, self).save(*args, **kwargs)
 
         if is_new:
             try:
@@ -71,7 +71,7 @@ class VersionsModel(models.Model):
             self._versions_status = VERSIONS_STATUS_STAGED_DELETE
         else:
             self._versions_status = VERSIONS_STATUS_DELETED
-        self.save()
+        self.save(*args, **kwargs)
 
     def commit(self):
         if self._versions_status == VERSIONS_STATUS_STAGED_DELETE:
