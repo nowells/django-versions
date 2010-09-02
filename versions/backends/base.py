@@ -1,5 +1,6 @@
 class BaseRepository(object):
-    def __init__(self, local=None, remote=None):
+    def __init__(self, key, local=None, remote=None):
+        self.key = key
         self.local = local
         self.remote = remote
 

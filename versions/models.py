@@ -44,7 +44,7 @@ class VersionsModel(models.Model):
         self._versions_revision = None
         super(VersionsModel, self).__init__(*args, **kwargs)
 
-    def __save_base(self, *args, **kwargs):
+    def _save_base(self, *args, **kwargs):
         is_new = self._get_pk_val() is None
         super(VersionsModel, self).save()
 
@@ -63,7 +63,7 @@ class VersionsModel(models.Model):
 
     def save(self, *args, **kwargs):
         if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
-            self.__save_base(*args, **kwargs)
+            self._save_base(*args, **kwargs)
         revision.stage(self)
 
     def delete(self, *args, **kwargs):
@@ -81,7 +81,7 @@ class VersionsModel(models.Model):
 
         # We don't want to call our main save method, because we want to delay
         # staging the state of this model until we set the state of all unpublihsed manytomany edits.
-        self.__save_base()
+        self._save_base()
 
         if self._versions_revision is None:
             data = revision.data(self)
@@ -95,10 +95,19 @@ class VersionsModel(models.Model):
                 pass
             else:
                 if isinstance(field, related.ManyToManyField):
-                    if self in revision._state.pending_related_updates and name in revision._state.pending_related_updates[self]:
-                        setattr(self, name, revision._state.pending_related_updates[self][name])
+                    related_manager = getattr(self, name)
+                    if issubclass(related_manager.model, VersionsModel):
+                        existing_ids = set(list(related_manager.get_query_set(bypass=True, bypass_filter=True).values_list('pk', flat=True)))
                     else:
-                        setattr(self, name, ids)
+                        existing_ids = set(list(related_manager.values_list('pk', flat=True)))
+
+                    if self in revision._state.pending_related_updates and name in revision._state.pending_related_updates[self]:
+                        updated_ids = revision._state.pending_related_updates[self][name]
+                    else:
+                        updated_ids = ids
+
+                    if existing_ids.symmetric_difference(updated_ids):
+                        setattr(self, name, updated_ids)
 
         revision.stage(self)
 

@@ -22,6 +22,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db.models.fields import related
 
 from versions.exceptions import VersionDoesNotExist, VersionsMultipleParents, VersionsManagementException
+from versions import signals
 from versions.utils import load_backend
 
 __all__ = ('revision',)
@@ -38,9 +39,11 @@ class RevisionState(threading.local):
         self.reset()
 
     def reset(self):
+        self.repositories = {}
         self.staged_objects = defaultdict(dict)
         self.pending_objects = set([])
         self.pending_related_updates = defaultdict(dict)
+        self.cache = {}
         self.user = None
         self.message = ""
         self.depth = 0
@@ -68,8 +71,8 @@ class RevisionManager(object):
         return self._state.latest_transactions
     latest_transactions = property(latest_transactions)
 
-    def start(self):
-        if self._state.depth == 0:
+    def start(self, reset=False):
+        if reset or self._state.depth == 0:
             self._state.reset()
         self._state.depth += 1
 
@@ -140,10 +143,16 @@ class RevisionManager(object):
         repo = self.repository_path(instance.__class__, instance._get_pk_val())
         item = self.item_path(instance.__class__, instance._get_pk_val())
 
-        self._state.pending_objects.discard(instance)
+        # Only stage the objects once we are completing our
+        if self._state.is_finishing:
+            self._state.pending_objects.discard(instance)
 
-        data = self.serialize(instance)
-        self._state.staged_objects[repo][item] = data
+            data = self.serialize(instance)
+            self._state.staged_objects[repo][item] = data
+
+            signals.post_stage.send(sender=instance.__class__, instance=instance)
+        else:
+            self._state.pending_objects.add(instance)
 
     def get_related_object_ids(self, instance, field_name, rev):
         if instance in self._state.pending_related_updates and field_name in self._state.pending_related_updates[instance]:
@@ -158,6 +167,7 @@ class RevisionManager(object):
         return pickle.loads(data)
 
     def data(self, instance):
+        from versions.models import VersionsModel
         field_names = [ x.name for x in instance._meta.fields if not x.primary_key ]
 
         if instance._versions_options.include:
@@ -176,12 +186,13 @@ class RevisionManager(object):
         for name, data in name_map.items():
             if isinstance(data[0], (related.RelatedObject, related.ManyToManyField)):
                 if instance in self._state.pending_related_updates and name in self._state.pending_related_updates[instance]:
-                    related_data[name] = list(self._state.pending_related_updates[instance][name])
+                    related_data[name] = sorted(list(self._state.pending_related_updates[instance][name]))
                 else:
                     manager = getattr(instance, name)
-                    if hasattr(manager, 'get_unfiltered_query_set'):
-                        manager = manager.get_unfiltered_query_set()
-                    related_data[name] = [ x['pk'] for x in manager.values('pk') ]
+                    if issubclass(manager.model, VersionsModel):
+                        related_data[name] = sorted([ x['pk'] for x in manager.get_query_set(bypass_filter=True).values('pk') ])
+                    else:
+                        related_data[name] = sorted([ x['pk'] for x in manager.values('pk') ])
 
         return {
             'field': field_data,
@@ -191,7 +202,13 @@ class RevisionManager(object):
     def _version(self, cls, pk, rev=None):
         repo = self.repository_path(cls, pk)
         item = self.item_path(cls, pk)
-        return self.deserialize(self[repo].version(item, rev=rev))
+        key = (item, rev,)
+        if key in self._state.cache:
+            data = self._state.cache[key]
+        else:
+            data = self[repo].version(item, rev=rev)
+            self._state.cache[key] = data
+        return self.deserialize(data)
 
     def version(self, instance, rev=None):
         return self._version(instance.__class__, instance._get_pk_val(), rev=rev)
@@ -229,7 +246,7 @@ class RevisionManager(object):
                 if 'backend' not in configs or 'local' not in configs:
                     raise ImproperlyConfigured('You must specify all required conifguration attributes for the `%s` versions backend.' % key)
                 backend = load_backend(configs['backend'])
-                self._repos[key] = backend.Repository(configs['local'], configs.get('remote', None))
+                self._repos[key] = backend.Repository(key, configs['local'], configs.get('remote', None))
         return self._repos[key]
 
     def _set_user(self, val):

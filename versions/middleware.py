@@ -2,7 +2,7 @@ from versions.base import revision
 
 class VersionsMiddleware(object):
     def process_request(self, request):
-        revision.start()
+        revision.start(reset=True)
         if hasattr(request, 'user') and request.user.is_authenticated():
             revision.user = request.user
 

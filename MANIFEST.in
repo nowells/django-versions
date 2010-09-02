@@ -1,0 +1,9 @@
+include README.rst
+include LICENSE.rst
+include AUTHORS
+include MANIFEST.in
+include REQUIREMENTS
+include django.patch
+include docs/Makefile
+include docs/conf.py
+recursive-include docs *.rst

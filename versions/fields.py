@@ -37,10 +37,11 @@ class VersionsForeignRelatedObjectsDescriptor(related.ForeignRelatedObjectsDescr
 
             def get_query_set(self, *args, **kwargs):
                 rev = kwargs.get('rev', None)
+                bypass_filter = kwargs.get('bypass_filter', False)
                 if self.related_model_instance is not None and hasattr(self.related_model_instance, '_versions_revision'):
                     rev = self.related_model_instance._versions_revision
 
-                if rev is not None:
+                if rev is not None and not bypass_filter:
                     data = revision.version(self.related_model_instance, rev=rev)
                     pks = data['related'].get(self.related_model_attname, [])
                     self.core_filters = {'pk__in': pks}
@@ -85,10 +86,11 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
 
             def get_query_set(self, *args, **kwargs):
                 rev = kwargs.get('rev', None)
+                bypass_filter = kwargs.get('bypass_filter', False)
                 if self.related_model_instance is not None:
                     rev = rev and rev or self.related_model_instance._versions_revision
 
-                if rev is not None:
+                if rev is not None and not bypass_filter:
                     self.core_filters = {'pk__in': revision.get_related_object_ids(self.related_model_instance, self.related_model_attname, rev)}
 
                 return super(VersionsRelatedManager, self).get_query_set(*args, **kwargs)
@@ -100,7 +102,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 model=rel_model,
                 core_filters={'%s__pk' % self.field.related_query_name(): instance._get_pk_val()},
                 instance=instance,
-                symmetrical=self.field.rel.symmetrical,
+                symmetrical=self.field.rel.symmetrical and isinstance(instance, rel_model),
                 join_table=qn(self.field.m2m_db_table()),
                 source_col_name=qn(self.field.m2m_column_name()),
                 target_col_name=qn(self.field.m2m_reverse_name())
@@ -110,7 +112,7 @@ class VersionsReverseManyRelatedObjectsDescriptor(related.ReverseManyRelatedObje
                 model=rel_model,
                 core_filters={'%s__pk' % self.field.related_query_name(): instance._get_pk_val()},
                 instance=instance,
-                symmetrical=self.field.rel.symmetrical,
+                symmetrical=self.field.rel.symmetrical and isinstance(instance, rel_model),
                 join_table=qn(self.field.m2m_db_table()),
                 source_field_name=self.field.m2m_field_name(),
                 target_field_name=self.field.m2m_reverse_field_name(),

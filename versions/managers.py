@@ -21,7 +21,10 @@ class VersionsManager(models.Manager):
     def diff(self, instance, rev0, rev1=None):
         return revision.diff(instance, rev0, rev1)
 
-    def get_query_set(self, rev=None, include_staged_delete=False, bypass_filter=False):
+    def get_query_set(self, rev=None, include_staged_delete=False, bypass_filter=False, bypass=False):
+        if bypass:
+            return super(VersionsManager, self).get_query_set()
+
         if self.related_model_instance is not None:
             rev = rev and rev or self.related_model_instance._versions_revision
 
