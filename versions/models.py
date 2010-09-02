@@ -66,6 +66,19 @@ class VersionsModel(models.Model):
             self._save_base(*args, **kwargs)
         revision.stage(self)
 
+    def save_base(self, *args, **kwargs):
+        # We want to be paranoid about not issuing inserts with pk values
+        # which are already in the database even if they're for deleted values
+        # which will not normally be seen by .exists():
+
+        pk = self._get_pk_val()
+        if not kwargs.get("force_update") \
+            and pk is not None \
+            and self._base_manager.get_query_set(bypass=True).filter(pk=pk).exists():
+            kwargs['force_update'] = True
+
+        return super(VersionsModel, self).save_base(*args, **kwargs)
+
     def delete(self, *args, **kwargs):
         if self._versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
             self._versions_status = VERSIONS_STATUS_STAGED_DELETE
