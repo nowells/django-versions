@@ -1,3 +1,5 @@
+import django
+
 from django.db import models
 from django.db.models.fields import related
 
@@ -70,12 +72,12 @@ class VersionsModel(models.Model):
         # We want to be paranoid about not issuing inserts with pk values
         # which are already in the database even if they're for deleted values
         # which will not normally be seen by .exists():
-
-        pk = self._get_pk_val()
-        if not kwargs.get("force_update") \
-            and pk is not None \
-            and self._base_manager.get_query_set(bypass=True).filter(pk=pk).exists():
-            kwargs['force_update'] = True
+        if django.VERSION >= (1, 2):
+            pk = self._get_pk_val()
+            if not kwargs.get("force_update") \
+                   and pk is not None \
+                   and self._base_manager.get_query_set(bypass=True).filter(pk=pk).exists():
+                kwargs['force_update'] = True
 
         return super(VersionsModel, self).save_base(*args, **kwargs)
 
