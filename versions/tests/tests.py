@@ -103,7 +103,10 @@ class VersionsModelTestCase(VersionsTestCase):
             self.assertRaises(ObjectDoesNotExist, first_a_kind_of_magic.songs.get, pk=princes_of_the_universe.pk)
 
             # Verify that retrieving the object from the reverse relationship and directly from the Song objects yield the same result.
-            self.assertEqual(second_a_kind_of_magic.songs.get(pk=princes_of_the_universe.pk).__dict__, Song.objects.version(second_revision).get(pk=princes_of_the_universe.pk).__dict__)
+            self.assertEqual(
+                dict([ (key, value) for key, value in second_a_kind_of_magic.songs.get(pk=princes_of_the_universe.pk).__dict__.items() if key != '_state' ]),
+                dict([ (key, value) for key, value in Song.objects.version(second_revision).get(pk=princes_of_the_universe.pk).__dict__.items() if key != '_state' ])
+                )
 
             # Verify that retrieval of the object from the reverse relationship return the correct versions of the objects.
             second_princes_of_the_universe = second_a_kind_of_magic.songs.get(pk=princes_of_the_universe.pk)
