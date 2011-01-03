@@ -62,9 +62,57 @@ class VersionsModel(models.Model):
                         revision.stage_related_updates(obj, related_field, 'add', [self], symmetrical=False)
 
     def save(self, *args, **kwargs):
-        if (self._get_pk_val() is None or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
+        if (self._should_create_placeholder() or self._versions_status in (VERSIONS_STATUS_PUBLISHED, VERSIONS_STATUS_DELETED)):
             self._save_base(*args, **kwargs)
         revision.stage(self)
+
+    def _should_create_placeholder(self):
+        """
+        In the case where we are editing an existing object (that has been deleted)
+        that shares the same unique constraints as our existing object. Then edit
+        that existing deleted object.
+        """
+        if self._get_pk_val() is None:
+            base_filter = self.__class__.objects.get_query_set(self._versions_revision, include_staged_delete=True, bypass_filter=True)
+
+            for unique_together in self._meta.unique_together:
+                filters = {}
+                for field_name in unique_together:
+                    field = self._meta.get_field(field_name)
+                    filters[field.name] = field._get_val_from_obj(self)
+                try:
+                    existing_object = base_filter.filter(**filters).get()
+                except self.__class__.DoesNotExist:
+                    pass
+                else:
+                    self.pk = existing_object.pk
+                    break
+
+            if self._get_pk_val() is None:
+                for field in self._meta.fields:
+                    if field.unique:
+                        filters = {
+                            field.name: field._get_val_from_obj(self),
+                            }
+                        try:
+                            existing_object = base_filter.filter(**filters).get()
+                        except self.__class__.DoesNotExist:
+                            pass
+                        else:
+                            self.pk = existing_object.pk
+                            break
+
+            if self._get_pk_val() is not None:
+                """
+                We need to ensure that all foreign relation versions have been updated
+                to include this previously deleted object. Calling setattr on each field
+                will force each of the related managers to trigger adding this object
+                back into their list of related objects.
+                """
+                for field in self._meta.fields:
+                    setattr(self, field.attname, field._get_val_from_obj(self))
+
+        return self._get_pk_val() is None
 
     def delete(self, *args, **kwargs):
         if self._versions_status in (VERSIONS_STATUS_STAGED_EDITS, VERSIONS_STATUS_STAGED_DELETE,):
